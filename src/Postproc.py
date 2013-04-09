@@ -1,11 +1,14 @@
 # Python-based Guderley imploding shock calculations
 # This is the post-processor
-# A. Zylstra 2012/02/08
+# A. Zylstra 2012/05/24
 
 from Guderley import *
-from Reactivity import *
+from Fusion import *
+from Plasma import *
+from Constants import *
 import csv
 import math
+from scipy.integrate import quad
 
 class Postproc:
     """A post-processor for Guderley calculations."""
@@ -94,7 +97,7 @@ class Postproc:
                     kern[int(math.fabs(indexr + i))][indext + j] += self.gauss(int(math.fabs(indexr + i))*self.dr,(indext+j)*self.dt+self.tmin, mur, sigmar, mut, sigmat)
 
         #Need to do a correction for the effective volume
-        InitVol = 4*3.1415*pow(mur,2)*self.dr
+        InitVol = 4*math.pi*pow(mur,2)*self.dr
         FinalVol = 0
         for i in range(-di,di):
             for j in range(-dj,dj):
@@ -106,7 +109,7 @@ class Postproc:
 
     def gauss(self, r,t,mur,sigmar,mut,sigmat):
         """Gaussian in r and t."""
-        return (1/(2*3.1415926*sigmar*sigmat))*math.exp(-pow(r-mur,2)/(2*pow(sigmar,2)))*math.exp(-pow(t-mut,2)/(2*pow(sigmat,2)))
+        return (1/(2*math.pi*sigmar*sigmat))*math.exp(-pow(r-mur,2)/(2*pow(sigmar,2)))*math.exp(-pow(t-mut,2)/(2*pow(sigmat,2)))
                 
 
     def write(self, t):
@@ -122,9 +125,13 @@ class Postproc:
         YDD = 0
         YD3He = 0
         YHeHe = 0
+        YDDMolvig = 0
+        YD3HeMolvig = 0
+        YHeHeMolvig = 0
         rateFile = csv.writer(open(os.path.join(self.name,'BurnRate.csv'),'w'))
         rateFile.writerow( ["t (s)", "DD (1/s)", "D3He (1/s)", "3He3He (1/s)"] )
         yieldFile = csv.writer(open(os.path.join(self.name,'Yield.csv'),'w'))
+        MolvigYieldFile = csv.writer(open(os.path.join(self.name,'MolvigYield.csv'),'w'))
         TiDD = 0
         TiD3He = 0
         TiHeHe = 0
@@ -133,16 +140,19 @@ class Postproc:
         #iterate over all time:
         for t in list(numpy.arange(self.tmin, self.tmax, self.dt)):
             #DD
-            dDD = self.DDrate(t)
+            [dDD, dDDMolvig] = self.DDrate(t)
             YDD += dDD*self.dt
+            YDDMolvig += dDDMolvig*self.dt
             TiDD += self.DDTirate(t)*self.dt
             #D3He
-            dD3He = self.D3Herate(t)
+            [dD3He, dD3HeMolvig] = self.D3Herate(t)
             YD3He += dD3He*self.dt
+            YD3HeMolvig += dD3HeMolvig*self.dt
             TiD3He += self.D3HeTirate(t)*self.dt
             #3He3He
-            d3He3He = self.HeHerate(t)
+            [d3He3He, d3He3HeMolvig] = self.HeHerate(t)
             YHeHe += d3He3He*self.dt
+            YHeHeMolvig += d3He3HeMolvig*self.dt
             TiHeHe += self.HeHeTirate(t)*self.dt
             #output
             rateFile.writerow( [t, dDD, dD3He, d3He3He] )
@@ -151,20 +161,26 @@ class Postproc:
         if YDD > 0:
             TiDD = TiDD / YDD
             print("DD yield = " + '{:.2e}'.format(YDD))
+            print("DD Molvig yield = " + '{:.2e}'.format(YDDMolvig))
             print("DD Ti = " + '{:.2f}'.format(TiDD))
             yieldFile.writerow( ["DD",YDD] )
+            MolvigYieldFile.writerow( ["DD",YDDMolvig] )
             TiFile.writerow( ["DD",TiDD] )
         if YD3He > 0:
             TiD3He = TiD3He / YD3He
             print("D3He yield = " + '{:.2e}'.format(YD3He))
+            print("D3He Molvig yield = " + '{:.2e}'.format(YD3HeMolvig))
             print("D3He Ti = " + '{:.2f}'.format(TiD3He))
             yieldFile.writerow( ["D3He",YD3He] )
+            MolvigYieldFile.writerow( ["D3He",YD3HeMolvig] )
             TiFile.writerow( ["D3He",TiD3He] )
         if YHeHe > 0:
             TiHeHe = TiHeHe / YHeHe
             print("3He3He yield = " + '{:.2e}'.format(YHeHe))
+            print("3He3He Molvig yield = " + '{:.2e}'.format(YHeHeMolvig))
             print("3He3He Ti = " + '{:.2f}'.format(TiHeHe))
             yieldFile.writerow( ["3He3He",YHeHe] )
+            MolvigYieldFile.writerow( ["3He3He",YHeHeMolvig] )
             TiFile.writerow( ["3He3He",TiHeHe] )
 
 
@@ -172,39 +188,45 @@ class Postproc:
     # Burn rate calculators
     # ------------------------------------
     def DDrate(self, t):
-        """Calculate the DD burn rate at time t (s)."""
+        """Calculate the DD burn rate at time t (s). Returns [normal, Molvig] rate."""
         fD = self.g.f1 # D fraction (atomic)
         if fD == 0:
-            return 0
+            return [0,0]
         
-        ret = 0
+        ret1 = 0
+        ret2 = 0
         it = (t-self.tmin) / self.dt
         for r in range(int(self.g.rFF(t) / self.dr)):
-            ret += DD(self.sTi[r,it])*pow(self.sni[r,it],2)*(fD*fD/2)*4*math.pi*pow(r*self.dr,2)*self.dr
-        return ret
+            ret1 += DD(self.sTi[r,it])*pow(self.sni[r,it],2)*(fD*fD/2)*4*math.pi*pow(r*self.dr,2)*self.dr
+            ret2 += self.svDDMolvig(r*self.dr,self.tmin+self.dt*it)*pow(self.sni[r,it],2)*(fD*fD/2)*4*math.pi*pow(r*self.dr,2)*self.dr
+        return [ret1, ret2]
     def D3Herate(self, t):
-        """Calculate the D3He burn rate at time t (s)."""
+        """Calculate the D3He burn rate at time t (s). Returns [normal, Molvig] rate."""
         fD = self.g.f1 # D fraction (atomic)
         f3He = self.g.f2 # 3He fraction (atomic)
         if fD*f3He == 0:
-            return 0
+            return [0,0]
         
-        ret = 0
+        ret1 = 0
+        ret2 = 0
         it = (t-self.tmin) / self.dt
         for r in range(int(self.g.rFF(t) / self.dr)):
-            ret += D3He(self.sTi[r,it])*pow(self.sni[r,it],2)*(fD*f3He)*4*math.pi*pow(r*self.dr,2)*self.dr
-        return ret
+            ret1 += D3He(self.sTi[r,it])*pow(self.sni[r,it],2)*(fD*f3He)*4*math.pi*pow(r*self.dr,2)*self.dr
+            ret2 += self.svD3HeMolvig(r*self.dr,self.tmin+self.dt*it)*pow(self.sni[r,it],2)*(fD*f3He)*4*math.pi*pow(r*self.dr,2)*self.dr
+        return [ret1, ret2]
     def HeHerate(self, t):
-        """Calculate the 3He3He burn rate at time t (s)."""
+        """Calculate the 3He3He burn rate at time t (s). Returns [normal, Molvig] rate."""
         f3He = self.g.f2 # 3He fraction (atomic)
         if f3He == 0:
-            return 0
+            return [0,0]
         
-        ret = 0
+        ret1 = 0
+        ret2 = 0
         it = (t-self.tmin) / self.dt
         for r in range(int(self.g.rFF(t) / self.dr)):
-            ret += HeHe(self.sTi[r,it])*pow(self.sni[r,it],2)*(f3He*f3He/2)*4*math.pi*pow(r*self.dr,2)*self.dr
-        return ret
+            ret1 += HeHe(self.sTi[r,it])*pow(self.sni[r,it],2)*(f3He*f3He/2)*4*math.pi*pow(r*self.dr,2)*self.dr
+            ret2 += self.svHeHeMolvig(r*self.dr,self.tmin+self.dt*it)*pow(self.sni[r,it],2)*(f3He*f3He/2)*4*math.pi*pow(r*self.dr,2)*self.dr
+        return [ret1, ret2]
 
     # ------------------------------------
     # Burn-averaged Ti "rate" calculators
@@ -261,45 +283,22 @@ class Postproc:
     # ------------------------------------        
     def IonMFP(self,r,t):
         """Calculate the ion mean free path (cm)."""
-        if self.g.ni(r,t) == 0:
-            return 0
-        return (2.28e7)*(1./self.g.FuelZ)*math.sqrt( self.g.FuelA/self.g.ni(r,t) )
+        return IonMFP( self.g.ni(r,t) , self.g.FuelZ , self.g.FuelA )
     def Tauii(self,r,t):
         """Calculate the ion-ion collision time (s)."""
-        if self.g.ni(r,t) == 0:
-            return 0
-        nu = (4.80e-8)*pow(self.g.FuelZ,4)*math.sqrt(1/(self.g.FuelA*pow(1000*self.g.Ti(r,t),3)))*self.g.ni(r,t)*self.LogL(r,t)
-        return (1./nu)
+        return Tauii( self.g.ni(r,t) , self.g.Ti(r,t) , self.g.FuelZ, self.g.FuelA )
     def LambdaD(self,r,t):
         """Calculate the Debye length (cm)."""
-        if self.g.ni(r,t) == 0:
-            return 0
-        #kB=1.381e-16
-        #e=4.803e-10
-        #return math.sqrt(kB*self.g.Ti(r,t)*1000*11600 / (4*3.1415*self.g.ni(r,t)*e*e))
-        return (7.43e2)*math.sqrt( 1000*self.g.Ti(r,t) / ((self.g.FuelZ+1)*self.g.ni(r,t)) )
+        return LambdaD( self.g.ne(r,t) , self.g.Te(r,t) )
     def uTherm(self,r,t):
         """Calculate the ion thermal velocity (cm/s)."""
-        ret = (9.79e5)*math.sqrt( 1000*self.g.Ti(r,t)/self.g.FuelZ )
-        return max(1,ret) #causes problems if u = 0
-    def LogL(self,r,t): #See C.K. Li PRL 1993
+        return uTherm( self.g.Ti(r,t) , self.g.FuelZ )
+    def LogL(self,r,t):
         """Calculate the Coulomb logarithm."""
-        if self.g.ni(r,t) == 0:
-            return 0
-        mp = 1.6726e-24 #g
-        mr = mp*self.g.FuelA/2.
-        e = 4.803e-10
-        pperp = pow(e*self.g.FuelZ,2) / (mr * pow(self.uTherm(r,t),2) )
-        hbar = 1.0546e-27 #cgs
-        pmin = math.sqrt( pow(pperp,2) + pow(hbar/(2*mr*self.uTherm(r,t)),2) )
-        return math.log( self.LambdaD(r,t) / pmin )
+        return LogL( self.g.ni(r,t) , self.g.Ti(r,t) , self.g.FuelZ , self.g.FuelA )
     def PFermi(self,r,t):
         """Calculate the Fermi pressure at radius r (cm), time t (ns)."""
-        h = 6.626e-27 #erg*s
-        me = 9.109e-28 #g
-        ne = self.g.ne(r,t)
-        Pf = ( pow(h,2) / (20*me) )*pow(3/3.1415,2/3)*pow(ne,5/3) #dyn
-        return Pf *1e-6 * 1e-9 #Gbar
+        return PFermi( self.g.ne(r,t) )
 
     # ------------------------------------
     # Calculate energy, entropy in the gas
@@ -308,9 +307,8 @@ class Postproc:
         """Calculate the total thermal energy in the gas at time t (s). Returns Joules."""
         Energy = 0.
         it = (t-self.tmin) / self.dt
-        kB=1.381e-16 #cgs
         for r in range(int(self.g.rShell(t) / self.dr)-1):
-            Vol = 4*3.1415*pow(r*self.dr,2)*self.dr
+            Vol = 4*math.pi*pow(r*self.dr,2)*self.dr
             #ion thermal energy
             Energy += 1.5*self.sni[r,it]*Vol*kB*self.sTi[r,it]*11600.*1000.
             #electron thermal energy
@@ -319,11 +317,10 @@ class Postproc:
     def alpha(self,t):
         """Calculate mass-weighted ratio of hydro pressure to Fermi pressure at time t."""
         it = (t-self.tmin) / self.dt #time index
-        mp = 1.672e-24 #g
         TotalMass = 1e-12
         alpha = 0.
         for r in range(int(self.g.rShell(t) / self.dr)-1):
-            Vol = 4*3.1415*pow(r*self.dr,2)*self.dr
+            Vol = 4*math.pi*pow(r*self.dr,2)*self.dr
             Mass = Vol*self.sni[r,it]*self.g.FuelZ*mp
             Pf = max(self.PFermi(r*self.dr,t) , 1e-9)
             alpha += (self.g.P(r*self.dr,t) / Pf ) * Mass
@@ -363,3 +360,71 @@ class Postproc:
             for t in list(numpy.arange(self.g.tc - self.g.t0, self.g.tFF()-self.dt, self.dt)):
                 File.writerow( [ t , self.g.rLagrange(t) ] )
             File.writerow([])
+            
+        
+    # -----------------------------------------------
+    #      Molvig-Knudsen reactivities
+    # -----------------------------------------------
+    #Helper functions:
+    def phi(self, theta, r, R):
+        """Helper function for Molvig L calculations."""
+        return ( math.pi/2.0 - theta - math.asin(r*math.sin(theta)/R) )
+    def L(self, theta, r, R):
+        """spherical geometry L helper function."""
+        return math.sqrt( math.pow(R*math.sin(self.phi(theta,r,R)),2) + math.pow(r-R*math.cos(self.phi(theta,r,R)),2) )
+    def integrand1(self, theta,r,R):
+        """integrand for Leff calculation"""
+        return ( math.sin(theta) / math.pow(self.L(theta,r,R),2) )
+    def Leff(self, r,t):
+        """Effective scale length in spherical geometry."""
+        R = self.g.rShell(t) #shell radius
+        if r >= R:
+            return 0
+        return math.sqrt( 2. / quad(self.integrand1, 0, math.pi, args=(r,R))[0] )
+    # Knudsen number:
+    def Nk(self, r, t, Z1, Z2):
+        """Knudsen number for fusion with ion charges Z1,Z2."""
+        return (math.sqrt(0.26) * pow(1000*11600*kB*self.g.Ti(r,t),2) / (math.pi*self.g.ni(r,t)*pow(Z1*Z2*e*e,2)*self.LogL(r,t)*self.Leff(r,t)) )
+    # Knudsen distribution function:
+    def fK(self, En,Nk,r,t):
+        """Knudsen distribution function."""
+        #normalized energy
+        eps = En / self.g.Ti(r,t)
+        #evaluated as prefactor and exponential
+        p1 = 2 / math.sqrt( math.pi + Nk*math.pow(eps,1.5) )
+        p2 = math.exp( -1.0*(eps+0.8*Nk*math.pow(eps,2.5)+0.32*math.pow(Nk*eps*eps,2))/(1 + 0.8*Nk*math.pow(eps,1.5)) )
+        return p1*p2
+    # DD reactivity:
+    def integrand2(self, En, r, t):
+        """Integrand for Molvig-Knudsen DD reactivity."""
+        NkDD = self.Nk(r, t, 1, 1)
+        return sigmaDDn(En)*c*math.sqrt(En/(1000*938))*self.fK(En,NkDD,r,t)*math.sqrt(En)
+    def svDDMolvig(self, r,t):
+        """Calculate DD reactivity (Molvig-Knudsen)."""
+        R = self.g.rShell(t)
+        if r > R or self.g.Ti(r,t) < 0.5:
+            return 0
+        return quad(self.integrand2, 0, 1000, args=(r,t))[0]
+    # D3He reactivity:
+    def integrand3(self, En, r, t):
+        """Integrand for Molvig-Knudsen D3He reactivity."""
+        NkDHe = self.Nk(r, t, 1, 2)
+        return sigmaD3He(En)*c*math.sqrt(En/(1250*938))*self.fK(En,NkDHe,r,t)*math.sqrt(En)
+    def svD3HeMolvig(self, r,t):
+        """Calculate D3He reactivity (Molvig-Knudsen)."""
+        R = self.g.rShell(t)
+        if r > R or self.g.Ti(r,t) < 0.5:
+            return 0
+        return quad(self.integrand3, 0, 1000, args=(r,t))[0]
+    # 3He3He reactivity:
+    def integrand4(self, En, r, t):
+        """Integrand for Molvig-Knudsen 3He3He reactivity."""
+        NkHeHe = self.Nk(r, t, 2, 2)
+        return sigmaHeHe(En)*c*math.sqrt(En/(1500*938))*self.fK(En,NkHeHe,r,t)*math.sqrt(En)
+    def svHeHeMolvig(self, r,t):
+        """Calculate 3He3He reactivity (Molvig-Knudsen)."""
+        R = self.g.rShell(t)
+        if r > R or self.g.Ti(r,t) < 0.5:
+            return 0
+        return quad(self.integrand4, 0, 1000, args=(r,t))[0]
+    

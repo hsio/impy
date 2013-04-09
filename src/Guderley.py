@@ -2,7 +2,7 @@
 # This code uses CGS units
 #
 # Author: Alex Zylstra
-# Date: 2012/02/08
+# Date: 2012/05/24
 
 import math
 import numpy
@@ -11,6 +11,7 @@ import scipy.integrate
 import scipy.interpolate
 import csv
 import os
+from Constants import *
 
 class Guderley:
     """A wrapper class for a Guderley simulation."""
@@ -43,13 +44,6 @@ class Guderley:
     f2 = 0.5
     FuelA = 0
     FuelZ = 0
-
-    # Some physical constants
-    Na = 6.022*pow(10,23)
-    e = 1.602*pow(10,-19)
-    AMU = 1.66053873*pow(10,-24)
-    Erg2eV = 1/(6.2415*pow(10,11))
-    P2GBAR = pow(10,-10)*1.0/(1.01325*pow(10,5))
 
     # Some Guderley constants
     gKappa = 0.
@@ -523,19 +517,19 @@ class Guderley:
         return self.rho0 * pow((r/self.r0), self.gKappa) * self.G(r,t)
     def T(self, r, t):
         """One-fluid hydro temperature T(r,t) with r in cm and t in s Returns T in keV."""
-        return pow(10,-3) * self.FuelA * self.AMU * pow(self.c(r,t),2) / self.Erg2eV
+        return pow(10,-3) * self.FuelA * AMU * pow(self.c(r,t),2) / Erg2eV
     def P(self, r, t):
         """One-fluid hydro pressure P(r,t) with r in cm and t in s Returns P in GBar."""
         return (1 + self.FuelZ) * self.rho(r,t) * pow(self.c(r,t),2) * pow(10,-15)
     def Ti(self, r, t):
         """Rygg-style ion temperature with defined e-i coupling Ti(r,t) with r in cm and t in s Returns Ti in keV."""
-        return (0.001 * self.FuelA * self.AMU * pow(self.c(r,t),2) / self.Erg2eV) * (1.0 - self.eiCoup * self.FuelZ / (1.+self.FuelZ))
+        return (0.001 * self.FuelA * AMU * pow(self.c(r,t),2) / Erg2eV) * (1.0 - self.eiCoup * self.FuelZ / (1.+self.FuelZ))
     def Te(self, r, t):
         """Rygg-style electron temperature with r in cm and t in s. Returns Te in keV."""
         return (self.T(r,t) - self.Ti(r,t))/self.FuelZ
     def ni(self, r, t):
         """Ion number density ni(r,t) with r in cm and t in s Returns ni in 1/cm^3."""
-        return self.rho(r,t) / (self.FuelA * self.AMU)
+        return self.rho(r,t) / (self.FuelA * AMU)
     def ne(self, r, t):
         """Electron number density ne(r,t) with r in cm and t in s Returns ne in 1/cm^3."""
         return self.ni(r,t) * self.FuelZ
