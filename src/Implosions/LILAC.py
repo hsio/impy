@@ -81,8 +81,8 @@ class LILAC:
         self.filename = input("LILAC file: ")
         self.file = open(self.filename,'r')
         self.readLILAC()
-        self.find_tc()
-        print(self.NumRegions)
+        self.tc = self.find_tc()
+        self.rRegionInit()
         
     # ------------------------------------
     # Read in the LILAC file
@@ -163,7 +163,7 @@ class LILAC:
         for i in self.TiRaw:
             rt.append( [i[0],i[1]] )
             z = numpy.append(z, i[2])
-        self.TiInt = scipy.interpolate.CloughTocher2DInterpolator(rt, z, fill_value=0.)
+        self.TiInt = scipy.interpolate.NearestNDInterpolator(rt, z)
         #Te
         rt = []
         z = numpy.array( [] , float)
@@ -198,10 +198,6 @@ class LILAC:
     # ------------------------------------
     # Hydro variables (interpolation)
     # ------------------------------------
-    def u(self, r, t):
-        """Fluid velocity u(r,t) with r in cm and t in s. Returns u in um/ns."""
-        t = t * 1e9 #convert from s to ns
-        return uInt([[r,t]])[0]
     def uLab(self, r, t):
         """Fluid velocity u(r,t) with r in cm and t in s. Returns u in um/ns."""
         t = t * 1e9 #convert from s to ns
@@ -223,7 +219,7 @@ class LILAC:
         t = t * 1e9 #convert from s to ns
         return self.PInt([[r,t]])[0]
     def Ti(self, r, t):
-        """Rygg-style ion temperature with defined e-i coupling Ti(r,t) with r in cm and t in s Returns Ti in keV."""
+        """with r in cm and t in s Returns Ti in keV."""
         t = t * 1e9 #convert from s to ns
         return self.TiInt([[r,t]])[0]
     def Te(self, r, t):
@@ -281,7 +277,8 @@ class LILAC:
             for i in self.rRegionMax[ir]:
                 rList.append( i[0] )
                 times.append( i[1] )
-            self.rRegionInt[ir] = scipy.interpolate.interp1d(times, rList, kind='cubic')
+            #self.rRegionInt[ir] = scipy.interpolate.interp1d(times, rList, kind='cubic') #also works, slower
+            self.rRegionInt[ir] = scipy.interpolate.UnivariateSpline(times, rList)
     def rRegion(self, t, ir):
         """Region boundary position at time t (s). Returns r in cm."""
         return self.rRegionInt[ir](t*1e9)[()]
@@ -299,7 +296,7 @@ class LILAC:
     # required time limits in the problem
     def tmin(self):
         """Minimum time for post-proc calculations (s)."""
-        return self.time[0]*1e-9
+        return max(self.time[0]*1e-9, self.tc-1e-10)
     def tmax(self):
         """Maximum time for post-proc calculations (s)."""
         return self.time[ len(self.time) - 1 ]*1e-9
@@ -309,7 +306,11 @@ class LILAC:
         return 0
     def rmax(self, t):
         """Maximum radius for post-proc calculations at time t in s."""
-        return self.rRegion(t,self.NumRegions-1)
+        iFuel = 0
+        for j in range(self.NumRegions): #find out how many regions actually contain fuel
+            if len(self.A[j]) > 0:
+                iFuel = max(iFuel, j)
+        return self.rRegion(t, iFuel)
         
     # required material composition info
     def IonA(self, r, t):

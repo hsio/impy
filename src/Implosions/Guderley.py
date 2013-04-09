@@ -2,7 +2,7 @@
 # This code uses CGS units
 #
 # Author: Alex Zylstra
-# Date: 2012/08/07
+# Date: 2012/08/14
 
 import math
 import numpy
@@ -86,6 +86,9 @@ class Guderley:
     GA = (gamma+1)/(gamma-1)
     K3 = GA*pow(alpha*A[0],-1.*gMu*(n+gKappa)/gBeta)*pow(1-A[1],-1.*((gKappa+gMu*gLambda)/gBeta))
     
+    #some stored times
+    tFFcalc = 0
+    
     # ------------------------------------
     # Initialization
     # ------------------------------------
@@ -108,6 +111,7 @@ class Guderley:
         self.UCTrajectories()
         self.CalcUCG()
         self.rShellInit()
+        self.tFFcalc = self.tFF()
         return    
 
     # ------------------------------------
@@ -171,7 +175,8 @@ class Guderley:
         for i in rList:
             rList2.append(i[0])
         #interpolate
-        self.rShellInt = scipy.interpolate.interp1d(times, rList2, kind='cubic')
+        #self.rShellInt = scipy.interpolate.interp1d(times, rList2, kind='cubic')
+        self.rShellInt = scipy.interpolate.InterpolatedUnivariateSpline(times, rList2)
     def rShell(self,t):
         """Shell position at time t (s). Returns rShell in cm."""
         return self.rShellInt(t)[()]
@@ -184,7 +189,8 @@ class Guderley:
         for i in rList:
             rList2.append(i[0])
         #interpolate
-        self.rLagrangeInt = scipy.interpolate.interp1d(times, rList2, kind='cubic')
+        #self.rLagrangeInt = scipy.interpolate.interp1d(times, rList2, kind='cubic')
+        self.rLagrangeInt = scipy.interpolate.InterpolatedUnivariateSpline(times, rList2)
         return
     def rLagrange(self,t):
         """Lagrangian trajectory position at time t (s). Returns r in cm."""
@@ -277,7 +283,8 @@ class Guderley:
         for i in self.UincList:
             UincListx.append(i[0])
             UincListy.append(i[1])
-        self.UincInt = scipy.interpolate.interp1d(UincListx, UincListy, kind='linear')
+        #self.UincInt = scipy.interpolate.interp1d(UincListx, UincListy, kind='linear')
+        self.UincInt = scipy.interpolate.InterpolatedUnivariateSpline(UincListx, UincListy)
             
         #Outer flow region
         #numerical integration
@@ -292,7 +299,8 @@ class Guderley:
         for i in Uouterflow1:
             x.append(i[0])
             y.append(i[1])
-        self.UouterInt = scipy.interpolate.interp1d(x, y, kind='linear')
+        #self.UouterInt = scipy.interpolate.interp1d(x, y, kind='linear')
+        self.UouterInt = scipy.interpolate.InterpolatedUnivariateSpline(x, y)
 
         #Central flow region
         intRange = list(numpy.arange( self.P6[0] , 1-dInt , -1.*dInt ))
@@ -308,7 +316,8 @@ class Guderley:
             y.append(i[1])
         x.reverse()
         y.reverse()
-        self.UcentralInt = scipy.interpolate.interp1d(x, y, kind='linear')
+        #self.UcentralInt = scipy.interpolate.interp1d(x, y, kind='linear')
+        self.UcentralInt = scipy.interpolate.InterpolatedUnivariateSpline(x, y)
         
 
         #Find the shock jump points
@@ -375,7 +384,8 @@ class Guderley:
         for i in self.CvsXiShock:
             x.append(i[0])
             y.append(i[1])
-        self.CvsXiShockInt = scipy.interpolate.interp1d(x, y, kind='linear')
+        #self.CvsXiShockInt = scipy.interpolate.interp1d(x, y, kind='linear')
+        self.CvsXiShockInt = scipy.interpolate.InterpolatedUnivariateSpline(x, y)
 
         #Central flow region
         dXi = 0.001
@@ -393,7 +403,8 @@ class Guderley:
         for i in self.CvsXiCentral:
             x.append(i[0])
             y.append(i[1])
-        self.CvsXiCentralInt = scipy.interpolate.interp1d(x, y, kind='linear')
+        #self.CvsXiCentralInt = scipy.interpolate.interp1d(x, y, kind='linear')
+        self.CvsXiCentralInt = scipy.interpolate.InterpolatedUnivariateSpline(x, y)
 
         #Outer flow region
         dXi = 0.005
@@ -410,7 +421,8 @@ class Guderley:
         for i in self.CvsXiOuter:
             x.append(i[0])
             y.append(i[1])
-        self.CvsXiOuterInt = scipy.interpolate.interp1d(x, y, kind='linear')
+        #self.CvsXiOuterInt = scipy.interpolate.interp1d(x, y, kind='linear')
+        self.CvsXiOuterInt = scipy.interpolate.InterpolatedUnivariateSpline(x, y)
                           
         return
                                
@@ -549,7 +561,7 @@ class Guderley:
         return self.tc
     def tmax(self):
         """Maximum time for post-proc calculations."""
-        return self.tFF()
+        return self.tFFcalc
     # required length limits in the problem
     def rmin(self, t):
         """Minimum radius for post-proc calculations at time t in s."""

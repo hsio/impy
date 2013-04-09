@@ -1,15 +1,18 @@
 # Python-based implosion analyzer
-# A. Zylstra 2012/08/07
+# A. Zylstra 2012/08/14
+
+# Command line arguments
+# python3.2 run.py (y/n)
+# (y/n): run all (or none) of the modules
 
 from datetime import *
 import os, sys, inspect
 
-
 print("----------------------------------------")
 print("pyImplosion")
 print("Author: Alex Zylstra")
-print("Date: Aug 8, 2012")
-print("v0.5.0")
+print("Date: Aug 14, 2012")
+print("v0.6.0")
 print("----------------------------------------")
 
 #path setup
@@ -39,11 +42,16 @@ modules = map(__import__, moduleNames)
 
 # run all modules
 runIndex = 0
+runModule = 'n'
+if len(sys.argv) < 2:
+    sys.argv.append('n')
 for i in modules:
     t1 = datetime.now()
-    print( moduleNames[runIndex] )
+    if not (sys.argv[1] == 'y' or sys.argv[1] == 'Y'):
+        runModule = input("Run " + moduleNames[runIndex] + "? (y/n): ")
     runIndex += 1
     
-    i.run(impl)
-    t2 = datetime.now()
-    print( '{:.1f}'.format((t2-t1).total_seconds()) + "s elapsed")
+    if runModule == 'y' or runModule == 'Y' or sys.argv[1] == 'y' or sys.argv[1] == 'Y':
+        i.run(impl)
+        t2 = datetime.now()
+        print( '{:.1f}'.format((t2-t1).total_seconds()) + "s elapsed")

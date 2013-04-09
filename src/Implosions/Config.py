@@ -11,15 +11,17 @@ from Implosion import * #abstract class
 # where <filename> is the name of your file
 from Guderley import *
 from LILAC import *
+from HYADES import *
 # [MODIFY] add line:
 # Implosion.register(<class name>)
 Implosion.register(Guderley)
 Implosion.register(LILAC)
+Implosion.register(HYADES)
 
 def implSelector():
     """Let thte user select implosion type from options."""
     # [MODIFY] add the name of your file's class to this list.
-    implTypes = ['Guderley', 'LILAC']
+    implTypes = ['Guderley', 'LILAC', 'HYADES']
 
     # Do mode selection
     index = 0
@@ -36,6 +38,8 @@ def implSelector():
         impl = Guderley()
     if mode == 1:
         impl = LILAC()
+    if mode == 2:
+        impl = HYADES()
     
     t2 = datetime.now()
     print( '{:.1f}'.format((t2-t1).total_seconds()) + "s elapsed")
