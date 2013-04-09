@@ -1,5 +1,5 @@
 # make various trajectories for plotting
-# A. Zylstra 2012/08/14
+# A. Zylstra 2012/08/15
 
 from Implosion import *
 from Resources.IO import *
@@ -16,7 +16,7 @@ dr = 25e-4 #25um
 # Make Lagrange plots
 # ------------------------------------
 def LagrangePlots(impl):
-    """Make Lagrange plots of initial gas material."""
+    """Make Lagrange plots of initial material."""
     File = csv.writer(open(os.path.join(OutputDir,'Lagrange.csv'),'w'))
     #steps in radius:
     for r in list(arange(impl.rmin(impl.tmin()),impl.rmax(impl.tmin()), dr)):

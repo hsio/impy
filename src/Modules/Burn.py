@@ -37,7 +37,7 @@ def DDrate(impl, t):
     f1 = 0 # D fraction (atomic)
     ret = 0
     
-    for r in arange( impl.rmin(t) , impl.rmax(t) , dr ):
+    for r in arange( impl.rmin(t) , impl.rfuel(t) , dr ):
         r1 = r + dr/2
         f1 = fD(impl,r1,t)
         ret += DD(impl.Ti(r1,t))*pow(impl.ni(r1,t),2)*(f1*f1/2)*4*math.pi*pow(r1,2)*dr
@@ -48,7 +48,7 @@ def D3Herate(impl, t):
     f2 = 0 # 3He fraction (atomic)
     ret = 0
 
-    for r in arange( impl.rmin(t) , impl.rmax(t) , dr ):
+    for r in arange( impl.rmin(t) , impl.rfuel(t) , dr ):
         r1 = r + dr/2
         f1 = fD(impl,r1,t)
         f2 = f3He(impl,r1,t)
@@ -60,7 +60,7 @@ def HeHerate(impl, t):
     f1 = 0 # 3he fraction (atomic)
     ret = 0
 
-    for r in arange( impl.rmin(t) , impl.rmax(t) , dr ):
+    for r in arange( impl.rmin(t) , impl.rfuel(t) , dr ):
         r1 = r + dr/2
         f1 = f3He(impl,r1,t)
         ret += HeHe(impl.Ti(r1,t))*pow(impl.ni(r1,t),2)*(f1*f1/2)*4*math.pi*pow(r1,2)*dr
@@ -75,7 +75,7 @@ def DDTirate(impl, t):
     f1 = 0 # D fraction (atomic)
     ret = 0
     
-    for r in arange( impl.rmin(t) , impl.rmax(t) , dr ):
+    for r in arange( impl.rmin(t) , impl.rfuel(t) , dr ):
         r1 = r + dr/2
         f1 = fD(impl,r1,t)
         ret += impl.Ti(r1,t)*DD(impl.Ti(r1,t))*pow(impl.ni(r1,t),2)*(f1*f1/2)*4*math.pi*pow(r1,2)*dr
@@ -86,7 +86,7 @@ def D3HeTirate(impl, t):
     f2 = 0 # 3He fraction (atomic)
     ret = 0
     
-    for r in arange( impl.rmin(t) , impl.rmax(t) , dr ):
+    for r in arange( impl.rmin(t) , impl.rfuel(t) , dr ):
         r1 = r + dr/2
         f1 = fD(impl,r1,t)
         f2 = f3He(impl,r1,t)
@@ -98,7 +98,7 @@ def HeHeTirate(impl, t):
     f1 = 0 # 3He fraction (atomic)
     ret = 0
 
-    for r in arange( impl.rmin(t) , impl.rmax(t) , dr ):
+    for r in arange( impl.rmin(t) , impl.rfuel(t) , dr ):
         r1 = r + dr/2
         f1 = f3He(impl,r1,t)
         ret += impl.Ti(r1,t)*HeHe(impl.Ti(r1,t))*pow(impl.ni(r1,t),2)*(f1*f1/2)*4*math.pi*pow(r1,2)*dr

@@ -93,7 +93,6 @@ class Guderley:
     # Initialization
     # ------------------------------------
     def __init__(self, args=None):
-        print("foo")
         self.name = os.path.join(OutputDir , 'Guderley')
         #create a directory named name if it doesn't exist
         d = os.path.dirname(self.name)
@@ -591,9 +590,12 @@ class Guderley:
     def rmin(self, t):
         """Minimum radius for post-proc calculations at time t in s."""
         return 0
+    def rfuel(self, t):
+        """Maximum radius of fuel material at time t in s."""
+        return self.rFF(t)
     def rmax(self, t):
         """Maximum radius for post-proc calculations at time t in s."""
-        return self.rFF(t)
+        return self.rShell(t)
 
     # ------------------------------------
     # Material compositions
@@ -607,3 +609,9 @@ class Guderley:
     def IonF(self, r, t):
         """List of ion relative populations."""
         return [self.f1, self.f2]
+    def Abar(self, r, t):
+        """Average ion A, at r in cm and t in s."""
+        return self.FuelA
+    def Zbar(self, r, t):
+        """Average ion Z, at r in cm and t in s."""
+        return self.FuelZ

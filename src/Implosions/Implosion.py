@@ -1,6 +1,6 @@
 # Python-based abstract representation of an implosion
 # All implosion types must implement these methods
-# A. Zylstra 2012/08/07
+# A. Zylstra 2012/08/15
 
 from abc import ABCMeta
 
@@ -50,6 +50,9 @@ class Implosion(metaclass=ABCMeta):
     def rmin(self, t):
         """Minimum radius for post-proc calculations at time t in s."""
         return 0
+    def rfuel(self, t):
+        """Maximum radius of fuel material at time t in s."""
+        return 0
     def rmax(self, t):
         """Maximum radius for post-proc calculations at time t in s."""
         return 0
@@ -64,3 +67,9 @@ class Implosion(metaclass=ABCMeta):
     def IonF(self, r, t):
         """List of fuel ion relative populations. At r in cm and t in s."""
         return []
+    def Abar(self, r, t):
+        """Average ion A, at r in cm and t in s."""
+        return 0
+    def Zbar(self, r, t):
+        """Average ion Z, at r in cm and t in s."""
+        return 0

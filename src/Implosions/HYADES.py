@@ -245,13 +245,16 @@ class HYADES:
     def rmin(self, t):
         """Minimum radius for post-proc calculations at time t in s."""
         return 0
-    def rmax(self, t):
-        """Maximum radius for post-proc calculations at time t in s."""
+    def rfuel(self, t):
+        """Maximum radius of fuel material at time t in s."""
         iFuel = 0
         for j in range(self.NumRegions): #find out how many regions actually contain stuff
             if self.fuel(self.AtmNum[j]):
                 iFuel = max(iFuel, j)
         return self.rRegion(t, iFuel)
+    def rmax(self, t):
+        """Maximum radius for post-proc calculations at time t in s."""
+        return self.rRegion(t, self.NumRegions-1)
         
     # required material composition info
     def IonA(self, r, t):
@@ -263,3 +266,9 @@ class HYADES:
     def IonF(self, r, t):
         """List of ion relative populations."""
         return self.AtmFrc[self.RegionIdent(r,t)]
+    def Abar(self, r, t):
+        """Average ion A, at r in cm and t in s."""
+        return numpy.dot( self.IonA(r,t) , self.IonF(r,t) )
+    def Zbar(self, r, t):
+        """Average ion Z, at r in cm and t in s."""
+        return numpy.dot( self.IonZ(r,t) , self.IonF(r,t) )

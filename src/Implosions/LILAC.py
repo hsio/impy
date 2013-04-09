@@ -12,6 +12,7 @@ import numpy
 import scipy.optimize
 import scipy.integrate
 import scipy.interpolate
+from Resources.Constants import *
 import csv
 import os
 import string
@@ -35,8 +36,8 @@ class LILAC:
     A = []
     Z = []
     F = []
-    Abar = []
-    Zbar = []
+    Aavg = []
+    Zavg = []
     
     #Raw read from LILAC
     NumRegions = 0
@@ -213,7 +214,7 @@ class LILAC:
         return math.sqrt( self.gamma*self.P(r,t) / self.rho(r,t) )
     def rho(self, r, t):
         """Density rho(r,t) with r in cm and t in s Returns rho in g/cm3."""
-        return self.mp*self.Abar( self.RegionIdent(r,t) )*self.ni(r,t)
+        return mp*self.Aavg[ self.RegionIdent(r,t) ]*self.ni(r,t)
     def T(self, r, t):
         """One-fluid hydro temperature T(r,t) with r in cm and t in s Returns T in keV."""
         return self.Ti(r,t)
@@ -235,7 +236,7 @@ class LILAC:
         return self.niInt([[r,t]])[0]
     def ne(self, r, t):
         """Electron number density ne(r,t) with r in cm and t in s Returns ne in 1/cm^3."""
-        return self.ni(r,t) * self.Zbar( self.RegionIdent(r,t) )
+        return self.ni(r,t) * self.Zavg[ self.RegionIdent(r,t) ]
     
         
     # ------------------------------------
@@ -307,13 +308,16 @@ class LILAC:
     def rmin(self, t):
         """Minimum radius for post-proc calculations at time t in s."""
         return 0
-    def rmax(self, t):
-        """Maximum radius for post-proc calculations at time t in s."""
+    def rfuel(self, t):
+        """Maximum radius of fuel material at time t in s."""
         iFuel = 0
         for j in range(self.NumRegions): #find out how many regions actually contain fuel
             if len(self.A[j]) > 0:
                 iFuel = max(iFuel, j)
         return self.rRegion(t, iFuel)
+    def rmax(self, t):
+        """Maximum radius for post-proc calculations at time t in s."""
+        return self.rRegion(t, self.NumRegions-1)
         
     # required material composition info
     def IonA(self, r, t):
@@ -325,6 +329,12 @@ class LILAC:
     def IonF(self, r, t):
         """List of ion relative populations."""
         return self.F[self.RegionIdent(r,t)]
+    def Abar(self, r, t):
+        """Average ion A, at r in cm and t in s."""
+        return self.Aavg[ self.RegionIdent(r,t) ]
+    def Zbar(self, r, t):
+        """Average ion Z, at r in cm and t in s."""
+        return self.Zavg[ self.RegionIdent(r,t) ]
         
     # ------------------------------------
     # Handle LILAC material info
@@ -373,6 +383,6 @@ class LILAC:
         self.A.append(A)
         self.Z.append(Z)
         self.F.append(F)
-        self.Abar.append(Abar)
-        self.Zbar.append(Zbar)
+        self.Aavg.append(Abar)
+        self.Zavg.append(Zbar)
         return

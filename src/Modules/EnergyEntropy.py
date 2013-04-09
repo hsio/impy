@@ -18,13 +18,10 @@ dr = 5e-4 #5um
 # ------------------------------------
 # Helper methods
 # ------------------------------------
-def AvgA(impl, r, t):
-    return dot( impl.IonA(r,t) , impl.IonF(r,t) )
-    
 def ThermalEnergy(impl,t):
     """Calculate the total thermal energy in the gas at time t (s). Returns Joules."""
     Energy = 0.
-    for r in list(arange(impl.rmin(t), impl.rmax(t), dr)):
+    for r in list(arange(impl.rmin(t), impl.rfuel(t), dr)):
         Vol = 4*math.pi*pow(r+dr/2,2)*dr
         #ion thermal energy
         Energy += 1.5*impl.ni(r,t)*Vol*kB*impl.Ti(r,t)*11600.*1000.
@@ -36,9 +33,9 @@ def alpha(impl,t):
     """Calculate mass-weighted ratio of hydro pressure to Fermi pressure at time t."""
     TotalMass = 1e-12 # small but non-zero
     alpha = 0.
-    for r in list(arange(impl.rmin(t), impl.rmax(t), dr)):
+    for r in list(arange(impl.rmin(t), impl.rfuel(t), dr)):
         Vol = 4*math.pi*pow(r+dr/2,2)*dr
-        Mass = Vol*impl.ni(r,t)*AvgA(impl,r,t)*mp
+        Mass = Vol*impl.ni(r,t)*impl.Abar(r,t)*mp
         Pf = max(PFermi(impl.ne(r,t)) , 1e-9)
         alpha += (impl.P(r,t) / Pf ) * Mass
         TotalMass += Mass

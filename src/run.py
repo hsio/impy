@@ -1,5 +1,5 @@
 # Python-based implosion analyzer
-# A. Zylstra 2012/08/14
+# A. Zylstra 2012/08/16
 
 # Command line arguments
 # python3.2 run.py (y/n) [(mode) (mode opts)]
@@ -9,13 +9,12 @@
 
 from datetime import *
 import os, sys, inspect
-print(len(sys.argv))
 
 print("----------------------------------------")
 print("pyImplosion")
 print("Author: Alex Zylstra")
-print("Date: Aug 15, 2012")
-print("v0.6.1")
+print("Date: Aug 16, 2012")
+print("v0.6.2")
 print("----------------------------------------")
 
 #path setup
@@ -63,6 +62,8 @@ if len(sys.argv) < 2:
 for i in modules:
     if not (sys.argv[1] == 'y' or sys.argv[1] == 'Y'):
         runModule = input("Run " + moduleNames[runIndex] + "? (y/n): ")
+    else:
+        print("Running " + moduleNames[runIndex] + "...")
     runIndex += 1
     t1 = datetime.now()
     
