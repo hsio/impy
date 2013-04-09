@@ -1,50 +1,49 @@
-# Python-based Guderley imploding shock calculations
-# A. Zylstra 2012/02/12
+# Python-based implosion analyzer
+# A. Zylstra 2012/08/07
 
-from Guderley import *
-from LILAC import *
-from Postproc import *
 from datetime import *
+import os, sys, inspect
+
 
 print("----------------------------------------")
 print("pyImplosion")
 print("Author: Alex Zylstra")
-print("Date: May 24, 2012")
+print("Date: Aug 8, 2012")
+print("v0.5.0")
 print("----------------------------------------")
-print("0 = Guderley")
-print("1 = LILAC")
-mode = float(input("mode = "))
+
+#path setup
+# add Modules folder to path
+cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"Modules")))
+if cmd_subfolder not in sys.path:
+    sys.path.insert(0, cmd_subfolder)
+# add Implosions folder to path
+cmd_subfolder2 = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"Implosions")))
+if cmd_subfolder2 not in sys.path:
+    sys.path.insert(0, cmd_subfolder2)
+
+# Have the user select and set up and implosion type
+from Config import *
+impl = implSelector()
 print("----------------------------------------")
-t1 = datetime.now()
 
-if mode == 0:
-    print("Solving Guderley ...")
-    impl = Guderley('Guderley')
+# Make a list of all modules in the 'Modules' folder
+rawList = os.listdir("Modules")
+moduleNames = []
+for i in rawList:
+    if ".py" in i:
+        moduleNames.append( i[:-3] )
 
-if mode == 1:
-    print("Reading LILAC...")
-    filename = input("LILAC file: ")
-    impl = LILAC(filename)
+# import the modules to a map
+modules = map(__import__, moduleNames)
+
+# run all modules
+runIndex = 0
+for i in modules:
+    t1 = datetime.now()
+    print( moduleNames[runIndex] )
+    runIndex += 1
     
-print("done!")
-t2 = datetime.now()
-print( '{:.1f}'.format((t2-t1).total_seconds()) + "s elapsed")
-
-print("----------------------------------------")
-print("Initializing post-processor ...")
-t1 = datetime.now()
-p = Postproc('Postproc',impl)
-t2 = datetime.now()
-print("done!")
-print( '{:.1f}'.format((t2-t1).total_seconds()) + "s elapsed")
-
-t1 = datetime.now()
-print("postproc calculations...")
-p.write(0.5e-9)
-p.run()
-p.PrintTrajectories()
-p.EnergyEntropy()
-p.LagrangePlots()
-t2 = datetime.now()
-print("done!")
-print( '{:.1f}'.format((t2-t1).total_seconds()) + "s elapsed")
+    i.run(impl)
+    t2 = datetime.now()
+    print( '{:.1f}'.format((t2-t1).total_seconds()) + "s elapsed")

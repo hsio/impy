@@ -1,10 +1,11 @@
 # LILAC wrapper class
 # Reads in a .lilac file and does interpolation
-# to support the Python post-processor
+# to support the Python post-processor modules
+# Implements all functions called in Implosion.py
 # This code generally uses CGS units
 #
 # Author: Alex Zylstra
-# Date: 2012/02/12
+# Date: 2012/08/13
 
 import math
 import numpy
@@ -26,21 +27,22 @@ class LILAC:
     file = 0
     #Gas info
     gamma = 5./3.
-    #D info, fraction
-    Ion1 = "D"
-    Ion1A = 2.
-    Ion1Z = 1.
-    f1 = 0.5
-    #3He info, fraction
-    Ion2 = "3He"
-    Ion2A = 3.
-    Ion2Z = 2.
-    f2 = 0.5
-    FuelA = Ion1A*f1 + Ion2A*f2
-    FuelZ = Ion1Z*f1 + Ion2Z*f2
+    #fuel info
+    #names of valid fuel ions, if they are present,
+    #and definitions of their A and Z
+    FuelIonNames = ['H','D','T','3He']
+    #Fuel composition info
+    A = []
+    Z = []
+    F = []
+    Abar = []
+    Zbar = []
     
     #Raw read from LILAC
-    fuelRegions = []
+    NumRegions = 0
+    Regions = []
+    rRegionMax = []
+    rRegionInt = []
     time = []
     TiRaw = []
     niRaw = []
@@ -67,31 +69,20 @@ class LILAC:
     #some time scales in the problem
     t0 = 0
     tc = 0
-    #Some physical constants
-    mp = 1.672e-24 #g
+    #some physical scales
+    rMax = []
+    rMaxInt = 0
     
     # ------------------------------------
     # Initialization
     # ------------------------------------
-    def __init__(self,fname):
+    def __init__(self):
         """Initialization. 'file' is the path to the LILAC output."""
-        self.filename = fname
+        self.filename = input("LILAC file: ")
         self.file = open(self.filename,'r')
-        self.setup()
         self.readLILAC()
         self.find_tc()
-        
-    def setup(self):
-        """Some setup routines, i.e. read in info from user."""
-        self.f1 = float(input("D fraction = "))
-        self.f2 = float(input("3He fraction = "))
-        #normalization
-        self.f1 = self.f1 / (self.f1 + self.f2)
-        self.f2 = self.f2 / (self.f1 + self.f2)
-        #Calc avg A and Z:
-        self.FuelA = self.Ion1A*self.f1 + self.Ion2A*self.f2
-        self.FuelZ = self.Ion1Z*self.f1 + self.Ion2Z*self.f2
-    
+        print(self.NumRegions)
         
     # ------------------------------------
     # Read in the LILAC file
@@ -109,9 +100,12 @@ class LILAC:
         dataReader = csv.reader(self.file , delimiter=' ')
         line = self.cleanRead(dataReader)
         while line[0].isdigit():
-            #add to fuel zones
-            if 'D' in line[2] or 'He' in line[2]:
-                self.fuelRegions.append( [line[3], line[4]] )
+            #add to regions
+            self.Regions.append( [int(line[len(line)-2]), int(line[len(line)-1]) ] ) #region boundaries
+            # update materials
+            self.MatIdent(line[1])
+            self.NumRegions += 1
+            self.rRegionMax.append([])
             line = self.cleanRead(dataReader)
         
         #Read in the header until we get to the start of the data
@@ -148,13 +142,17 @@ class LILAC:
             line = self.cleanRead(dataReader)
             zone = 0
             while len(line) > 0 and line[0][0].isdigit():
-                if self.fuel(zone):
-                    r = float( line[self.rIndex] )
-                    self.TiRaw.append([ r, t, float( line[self.TiIndex] )*self.TUnitConv ])
-                    self.TeRaw.append([ r, t, float( line[self.TeIndex] )*self.TUnitConv ])
-                    self.niRaw.append([ r, t, float( line[self.niIndex] ) ])
-                    self.uRaw.append([ r, t, float( line[self.uIndex] ) ])
-                    self.PRaw.append([ r, t, float( line[self.PIndex] )*self.PUnitConv ])
+                r = float( line[self.rIndex] ) #radius
+                # read in all variables of interest
+                self.TiRaw.append([ r, t, float( line[self.TiIndex] )*self.TUnitConv ])
+                self.TeRaw.append([ r, t, float( line[self.TeIndex] )*self.TUnitConv ])
+                self.niRaw.append([ r, t, float( line[self.niIndex] ) ])
+                self.uRaw.append([ r, t, float( line[self.uIndex] ) ])
+                self.PRaw.append([ r, t, float( line[self.PIndex] )*self.PUnitConv ])
+                # keep track of region boundaries as a function of time
+                for i in range(len(self.Regions)):
+                    if zone+2 == self.Regions[i][1]:
+                        self.rRegionMax[i].append( [r , t] )
                 line = self.cleanRead(dataReader)
                 zone += 1
         
@@ -208,12 +206,15 @@ class LILAC:
         """Fluid velocity u(r,t) with r in cm and t in s. Returns u in um/ns."""
         t = t * 1e9 #convert from s to ns
         return uInt([[r,t]])[0]
+    def u(self, r, t):
+        """Fluid velocity u(r,t) with r in cm and t in s. Returns u in um/ns."""
+        return self.uLab(r,t)
     def c(self, r, t):
         """Sound speed c(r,t) with r in cm and t in s Returns c in um/ns."""
         return math.sqrt( self.gamma*self.P(r,t) / self.rho(r,t) )
     def rho(self, r, t):
         """Density rho(r,t) with r in cm and t in s Returns rho in g/cm3."""
-        return self.mp*self.FuelZ*self.ni(r,t)
+        return self.mp*self.FuelA*self.ni(r,t)
     def T(self, r, t):
         """One-fluid hydro temperature T(r,t) with r in cm and t in s Returns T in keV."""
         return self.Ti(r,t)
@@ -247,14 +248,13 @@ class LILAC:
         prevTi = self.Ti(0, self.time[0]*1e-9)
         Ti = self.Ti(5e-4, self.time[1]*1e-9)
         i = 1
-        #iterate until the ion temp changes by more than 10%
+        #iterate until the ion temp changes by more than 1keV
         while (i+1) < len(self.time):
             i += 1
             prevTi = Ti
             Ti = self.Ti(5e-4, self.time[i]*1e-9)
-            if Ti > 0. and (Ti-prevTi)/prevTi >= 1:
+            if Ti > 0. and (Ti-prevTi) >= 1:
                 tc = self.time[i]*1e-9
-                print(tc)
                 return tc
         return tc
             
@@ -271,10 +271,104 @@ class LILAC:
         while line.count(' ') > 0:
             line.remove(' ')
         return line
-    def fuel(self, i):
-        """Check to see if zone i is a fuel zone."""
-        ret = 0
-        for region in self.fuelRegions:
-            ret = ret or (i >= float(region[0]) and i<= float(region[1]))
-        return ret
+    def rRegionInit(self):
+        """Helper function to do initial region boundary position interpolation."""
+        for ir in range(self.NumRegions):
+            self.rRegionInt.append(0)
+            times = []
+            rList = []
+            #populate lists from 2D data
+            for i in self.rRegionMax[ir]:
+                rList.append( i[0] )
+                times.append( i[1] )
+            self.rRegionInt[ir] = scipy.interpolate.interp1d(times, rList, kind='cubic')
+    def rRegion(self, t, ir):
+        """Region boundary position at time t (s). Returns r in cm."""
+        return self.rRegionInt[ir](t*1e9)[()]
+    def RegionIdent(self, r, t):
+        """For r in cm and t in s, returns material region number."""
+        for ir in range(self.NumRegions):
+            if r <= self.rRegion(t,ir):
+                return ir
+        return self.NumRegions-1
         
+            
+    # ------------------------------------
+    # Implementation of remaining Implosion functions
+    # ------------------------------------
+    # required time limits in the problem
+    def tmin(self):
+        """Minimum time for post-proc calculations (s)."""
+        return self.time[0]*1e-9
+    def tmax(self):
+        """Maximum time for post-proc calculations (s)."""
+        return self.time[ len(self.time) - 1 ]*1e-9
+    # required length limits in the problem
+    def rmin(self, t):
+        """Minimum radius for post-proc calculations at time t in s."""
+        return 0
+    def rmax(self, t):
+        """Maximum radius for post-proc calculations at time t in s."""
+        return self.rRegion(t,self.NumRegions-1)
+        
+    # required material composition info
+    def IonA(self, r, t):
+        """List of AMU masses for all ions at r in cm and t in s."""
+        return self.A[self.RegionIdent(r,t)]
+    def IonZ(self, r, t):
+        """List of ion Z for all ions at r in cm and t in s."""
+        return self.Z[self.RegionIdent(r,t)]
+    def IonF(self, r, t):
+        """List of ion relative populations."""
+        return self.F[self.RegionIdent(r,t)]
+        
+    # ------------------------------------
+    # Handle LILAC material info
+    # ------------------------------------
+    def MatIdent(self, Num):
+        """Read in LILAC material definitions from CSV file, looking for ID # Num."""
+        MatFile = open("Resources/LILAC_Materials.csv",'r')
+        if not MatFile.readable(): #Sanity check
+            print("Error reading LILAC material file!")
+            return
+            
+        MatFile.readline() #discard header
+        
+        dataReader = csv.reader(MatFile , delimiter=',')
+        
+        A = []
+        Z = []
+        F = []
+        Abar = 0
+        Zbar = 0
+        for row in dataReader:
+            if int(row[0]) == int(Num):
+                if float(row[1]) > 0: # H is present
+                    A.append(1)
+                    Z.append(1)
+                    F.append(float(row[1]))
+                if float(row[2]) > 0: # D is present
+                    A.append(2)
+                    Z.append(1)
+                    F.append(float(row[2]))
+                if float(row[3]) > 0: # T is present
+                    A.append(3)
+                    Z.append(1)
+                    F.append(float(row[3]))
+                if float(row[4]) > 0: # 3He is present
+                    A.append(3)
+                    Z.append(2)
+                    F.append(float(row[4]))
+                Abar = float(row[5])
+                Zbar = float(row[6])
+        
+        #sanity check
+        if Abar == 0 or Zbar == 0:
+            print("ERROR: material not found!")
+        
+        self.A.append(A)
+        self.Z.append(Z)
+        self.F.append(F)
+        self.Abar.append(Abar)
+        self.Zbar.append(Zbar)
+        return

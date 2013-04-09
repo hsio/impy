@@ -1,8 +1,8 @@
 # Plasma parameter calculators
-# A. Zylstra 2012/05/24
+# A. Zylstra 2012/08/08
 
 import math
-from Constants import *
+from Resources.Constants import *
 
 # units for inputs
 # [T] = keV

@@ -2,7 +2,7 @@
 # This code uses CGS units
 #
 # Author: Alex Zylstra
-# Date: 2012/05/24
+# Date: 2012/08/07
 
 import math
 import numpy
@@ -11,7 +11,8 @@ import scipy.integrate
 import scipy.interpolate
 import csv
 import os
-from Constants import *
+from Resources.Constants import *
+from Resources.IO import *
 
 class Guderley:
     """A wrapper class for a Guderley simulation."""
@@ -88,12 +89,12 @@ class Guderley:
     # ------------------------------------
     # Initialization
     # ------------------------------------
-    def __init__(self, name):
-        self.name = name
+    def __init__(self):
+        self.name = os.path.join(OutputDir , 'Guderley')
         #create a directory named name if it doesn't exist
-        d = os.path.dirname(name)
-        if not os.path.exists(name):
-            os.makedirs(name)
+        d = os.path.dirname(self.name)
+        if not os.path.exists(self.name):
+            os.makedirs(self.name)
         
         self.runGuderley() #do the actual Guderley calculation
     
@@ -154,12 +155,12 @@ class Guderley:
         return strength * self.alpha * pow( math.fabs(t-self.tc) , self.alpha-1 )
     def rFF(self,t):
         """Calculate the 'free fall' radius at time t (s). Returns rFF in cm."""
-        uFF = self.u(self.r0 , (self.tc - self.t0 + 1e-12) )
+        uFF = self.uShock(self.r0 , (self.tc - self.t0 + 1e-12) )
         ret = max( 0. , (self.r0 - (t-(self.tc-self.t0))*uFF) )
         return ret
     def tFF(self):
         """Calculate when the 'free fall' mass hits the origin. Returns tFF in s."""
-        uFF = self.u(self.r0 , (self.tc - self.t0 + 1e-12) )
+        uFF = self.uShock(self.r0 , (self.tc - self.t0 + 1e-12) )
         return ( self.r0/uFF + (self.tc-self.t0) )
     def rShellInit(self):
         """Do initial numerical integration for shell position vs time calculations."""
@@ -170,7 +171,7 @@ class Guderley:
         for i in rList:
             rList2.append(i[0])
         #interpolate
-        self.rShellInt = scipy.interpolate.interp1d(times, rList2)
+        self.rShellInt = scipy.interpolate.interp1d(times, rList2, kind='cubic')
     def rShell(self,t):
         """Shell position at time t (s). Returns rShell in cm."""
         return self.rShellInt(t)[()]
@@ -183,7 +184,7 @@ class Guderley:
         for i in rList:
             rList2.append(i[0])
         #interpolate
-        self.rLagrangeInt = scipy.interpolate.interp1d(times, rList2)
+        self.rLagrangeInt = scipy.interpolate.interp1d(times, rList2, kind='cubic')
         return
     def rLagrange(self,t):
         """Lagrangian trajectory position at time t (s). Returns r in cm."""
@@ -194,6 +195,8 @@ class Guderley:
     # ------------------------------------
     def xi(self, r, t):
         """Calculate the self-similarity coordinate as a function of r (cm) and t (s)."""
+        if t == self.tc:
+            return 0
         return (r/self.r0) * pow( math.fabs( (t-self.tc)/self.t0 ) , -1.*self.alpha )
         
     # ------------------------------------
@@ -274,7 +277,7 @@ class Guderley:
         for i in self.UincList:
             UincListx.append(i[0])
             UincListy.append(i[1])
-        self.UincInt = scipy.interpolate.interp1d(UincListx, UincListy)
+        self.UincInt = scipy.interpolate.interp1d(UincListx, UincListy, kind='linear')
             
         #Outer flow region
         #numerical integration
@@ -289,7 +292,7 @@ class Guderley:
         for i in Uouterflow1:
             x.append(i[0])
             y.append(i[1])
-        self.UouterInt = scipy.interpolate.interp1d(x, y)
+        self.UouterInt = scipy.interpolate.interp1d(x, y, kind='linear')
 
         #Central flow region
         intRange = list(numpy.arange( self.P6[0] , 1-dInt , -1.*dInt ))
@@ -305,7 +308,7 @@ class Guderley:
             y.append(i[1])
         x.reverse()
         y.reverse()
-        self.UcentralInt = scipy.interpolate.interp1d(x, y)
+        self.UcentralInt = scipy.interpolate.interp1d(x, y, kind='linear')
         
 
         #Find the shock jump points
@@ -372,7 +375,7 @@ class Guderley:
         for i in self.CvsXiShock:
             x.append(i[0])
             y.append(i[1])
-        self.CvsXiShockInt = scipy.interpolate.interp1d(x, y)
+        self.CvsXiShockInt = scipy.interpolate.interp1d(x, y, kind='linear')
 
         #Central flow region
         dXi = 0.001
@@ -390,7 +393,7 @@ class Guderley:
         for i in self.CvsXiCentral:
             x.append(i[0])
             y.append(i[1])
-        self.CvsXiCentralInt = scipy.interpolate.interp1d(x, y)
+        self.CvsXiCentralInt = scipy.interpolate.interp1d(x, y, kind='linear')
 
         #Outer flow region
         dXi = 0.005
@@ -407,7 +410,7 @@ class Guderley:
         for i in self.CvsXiOuter:
             x.append(i[0])
             y.append(i[1])
-        self.CvsXiOuterInt = scipy.interpolate.interp1d(x, y)
+        self.CvsXiOuterInt = scipy.interpolate.interp1d(x, y, kind='linear')
                           
         return
                                
@@ -491,14 +494,14 @@ class Guderley:
     # ------------------------------------
     # Hydro variables
     # ------------------------------------
-    def u(self, r, t):
+    def uShock(self, r, t):
         """Fluid velocity u(r,t) with r in cm and t in s. Returns u in um/ns, relative to shock direction."""
         if t != self.tc:
             return self.alpha*r/math.fabs(t-self.tc)*self.U(r,t)
         return 0
     def uLab(self, r, t):
         """Fluid velocity u(r,t) with r in cm and t in s. Returns u in um/ns, in lab frame."""
-        ret = self.u(r,t)
+        ret = self.uShock(r,t)
         if t != self.tc:
             if t < self.tc: #incoming shock
                 return -1.*ret
@@ -507,6 +510,9 @@ class Guderley:
             if r >= self.rs(t): #outer flow
                 return ret
         return 0
+    def u(self, r, t):
+        """Fluid velocity u(r,t) with r in cm and t in s. Returns u in um/ns."""
+        return self.uLab(r,t)
     def c(self, r, t):
         """Sound speed c(r,t) with r in cm and t in s Returns c in um/ns."""
         if t != self.tc:
@@ -533,3 +539,34 @@ class Guderley:
     def ne(self, r, t):
         """Electron number density ne(r,t) with r in cm and t in s Returns ne in 1/cm^3."""
         return self.ni(r,t) * self.FuelZ
+
+    # ------------------------------------
+    # Time and radius limits
+    # ------------------------------------
+    # required time limits in the problem
+    def tmin(self):
+        """Minimum time for post-proc calculations."""
+        return self.tc
+    def tmax(self):
+        """Maximum time for post-proc calculations."""
+        return self.tFF()
+    # required length limits in the problem
+    def rmin(self, t):
+        """Minimum radius for post-proc calculations at time t in s."""
+        return 0
+    def rmax(self, t):
+        """Maximum radius for post-proc calculations at time t in s."""
+        return self.rFF(t)
+
+    # ------------------------------------
+    # Material compositions
+    # ------------------------------------
+    def IonA(self, r, t):
+        """List of AMU masses for all ions at r in cm and t in s."""
+        return [self.Ion1A, self.Ion2A]
+    def IonZ(self, r, t):
+        """List of ion Z for all ions at r in cm and t in s."""
+        return [self.Ion1Z, self.Ion2Z]
+    def IonF(self, r, t):
+        """List of ion relative populations."""
+        return [self.f1, self.f2]

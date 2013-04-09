@@ -1,10 +1,10 @@
 # Fusion rate/xsection calculators
-# A. Zylstra 2012/05/24
+# A. Zylstra 2012/08/08
 
 #All reactivities use units cm^3/s
 import math
-from Constants import *
-from Plasma import *
+from Resources.Constants import *
+from Resources.Plasma import *
 
 def T9(Ti):
     """Convert from ion temperature in keV to T9."""
