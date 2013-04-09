@@ -1,6 +1,6 @@
 # Python-based Guderley imploding shock calculations
 # This is the post-processor
-# A. Zylstra 2012/01/27
+# A. Zylstra 2012/02/06
 
 from Guderley import *
 from Reactivity import *
@@ -11,13 +11,18 @@ class Postproc:
     """A post-processor for Guderley calculations."""
     #Class variables
     g = 0
-    dr = 1e-4
+    dr = 2e-4
     rmin = 0
     rmax = 0.02
-    dt = 2e-12
+    dt = 5e-12
     tmin = -0.2e-9
     tmax = 0.5e-9
     name = 'Postproc'
+    # arrays of physical variables for smoothing
+    sni = numpy.zeros((1,1),dtype=numpy.float)
+    sTi = numpy.zeros((1,1),dtype=numpy.float)
+    #smoothing?
+    smooth = 0
 
     def __init__(self,name,g):
         self.name = name
@@ -26,14 +31,90 @@ class Postproc:
             os.makedirs(name)
         self.g = g
         self.tmin += g.tc
-        self.tmax += g.tc
+        self.tmax = g.tFF()
+        self.rmax = g.r0
+        #get time steps
+        self.dr = pow(10,-4)*float(input("Radial step (um): "))
+        self.dt = pow(10,-12)*float(input("Time step (ps): "))
+        #set up postproc data arrays
+        nr = self.g.r0 / self.dr
+        nt = (self.tmax - self.tmin) / self.dt
+        self.sni = numpy.zeros((nr,nt),dtype=numpy.float)
+        self.sTi = numpy.zeros((nr,nt),dtype=numpy.float)
+        #ask for smoothing factor
+        self.smooth = float(input("Smoothing factor (0-1): "))
+        #read data in from g
+        self.read_data()
+
+    def read_data(self):
+        """Read data from Guderley solution into the postprocessor, doing smoothing if necessary."""
+        nr = self.g.r0 / self.dr
+        nt = (self.tmax - self.tmin) / self.dt
+        tempni = numpy.zeros((nr,nt),dtype=numpy.float)
+        tempTi = numpy.zeros((nr,nt),dtype=numpy.float)
+        for i in range(int(self.g.r0 / self.dr)):
+            for j in range(int((self.tmax-self.tmin)/self.dt)):
+                if (j*self.dt+self.tmin) == self.g.tc:
+                    tempni[i,j] = 0.
+                    tempTi[i,j] = 0.
+                else:
+                    tempni[i,j] = self.g.ni(i*self.dr, j*self.dt+self.tmin)
+                    tempTi[i,j] = self.g.Ti(i*self.dr, j*self.dt+self.tmin)
+
+        if self.smooth > 0:
+            for i in range(int(self.g.r0 / self.dr)):
+                for j in range(int((self.tmax-self.tmin)/self.dt)):
+                    if (j*self.dt+self.tmin) == self.g.tc:
+                        tempni[i,j] += 0.
+                        tempTi[i,j] += 0.
+                    else:
+                        ni = self.g.ni(i*self.dr, j*self.dt+self.tmin)
+                        Ti = self.g.Ti(i*self.dr, j*self.dt+self.tmin)
+                        sigmar = self.IonMFP(i*self.dr, j*self.dt+self.tmin)
+                        sigmat = self.Tauii(i*self.dr, j*self.dt+self.tmin)
+                        kern = self.getKernel(i,j,sigmar,sigmat)
+                        tempni += kern*ni*self.dr*self.dt
+                        tempTi += kern*Ti*self.dr*self.dt
+        self.sni = tempni
+        self.sTi = tempTi
+
+    def getKernel(self,indexr,indext,sigmar,sigmat):
+        """Get a kernel for smoothing calculations."""
+        nr = self.g.r0 / self.dr
+        nt = (self.tmax - self.tmin) / self.dt
+        kern = numpy.zeros((nr,nt),dtype=numpy.float)
+        mur = indexr*self.dr
+        mut = indext*self.dt+self.tmin
+        #go 3 sigma out
+        di = int(3*sigmar/self.dr)
+        dj = int(3*sigmat/self.dt)
+        for i in range(-di,di):
+            for j in range(-dj,dj):
+                if int(math.fabs(indexr + i)) < nr-1 and (j+indext) < nt-1 and (j+indext) >= 0 and int(math.fabs(indexr + i)) >= 0:
+                    kern[int(math.fabs(indexr + i))][indext + j] += self.gauss(int(math.fabs(indexr + i))*self.dr,(indext+j)*self.dt+self.tmin, mur, sigmar, mut, sigmat)
+
+        #Need to do a correction for the effective volume
+        InitVol = 4*3.1415*pow(mur,2)*self.dr
+        FinalVol = 0
+        for i in range(-di,di):
+            for j in range(-dj,dj):
+                if int(math.fabs(indexr + i)) < nr-1 and (j+indext) < nt-1 and (j+indext) >= 0 and int(math.fabs(indexr + i)) >= 0:
+                    FinalVol += kern[int(math.fabs(indexr + i))][indext + j]*4*3.1415*pow(int(math.fabs(indexr + i))*self.dr,2)*self.dr
+        if FinalVol > 0:
+            kern = kern * InitVol/FinalVol
+        return kern
+
+    def gauss(self, r,t,mur,sigmar,mut,sigmat):
+        """Gaussian in r and t."""
+        return (1/(2*3.1415926*sigmar*sigmat))*math.exp(-pow(r-mur,2)/(2*pow(sigmar,2)))*math.exp(-pow(t-mut,2)/(2*pow(sigmat,2)))
+                
 
     def write(self, t):
         """Write out at time t (s)."""
         output = csv.writer(open(os.path.join(self.name,'Snapshot.csv'),'w'))
-        output.writerow( ["r (cm)", "u (cm/s)", "cs (cm/s)", "rho (g/cc)", "T (keV)", "P (GBar)"] )
+        output.writerow( ["r (cm)", "u (cm/s)", "cs (cm/s)", "rho (g/cc)", "T (keV)", "P (GBar)", "Ion MFP (cm)", "tau_ii (s)", "LogL", "Debye Length (cm)", "Smoothed ni (1/cc)", "Smoothed Ti (keV)"] )
         for i in list(numpy.arange(self.rmin, self.rmax, self.dr)):
-            output.writerow( [i, self.g.u(i,t), self.g.c(i,t), self.g.rho(i,t), self.g.T(i,t), self.g.P(i,t)] )
+            output.writerow( [i, self.g.u(i,t), self.g.c(i,t), self.g.rho(i,t), self.g.T(i,t), self.g.P(i,t), self.IonMFP(i,t), self.Tauii(i,t), self.LogL(i,t), self.LambdaD(i,t), self.sni[i/self.dr,(t-self.tmin)/self.dt], self.sTi[i/self.dr,(t-self.tmin)/self.dt] ])
 
     
     def run(self):
@@ -97,8 +178,9 @@ class Postproc:
             return 0
         
         ret = 0
-        for r in list(numpy.arange(self.rmin, self.rmax, self.dr)):
-            ret += DD(self.g.Ti(r,t))*pow(self.g.ni(r,t),2)*(fD*fD/2)*4*math.pi*pow(r,2)*self.dr
+        it = (t-self.tmin) / self.dt
+        for r in range(int(self.g.rFF(t) / self.dr)):
+            ret += DD(self.sTi[r,it])*pow(self.sni[r,it],2)*(fD*fD/2)*4*math.pi*pow(r*self.dr,2)*self.dr
         return ret
     def D3Herate(self, t):
         """Calculate the D3He burn rate at time t (s)."""
@@ -108,8 +190,9 @@ class Postproc:
             return 0
         
         ret = 0
-        for r in list(numpy.arange(self.rmin, self.rmax, self.dr)):
-            ret += D3He(self.g.Ti(r,t))*pow(self.g.ni(r,t),2)*(fD*f3He)*4*math.pi*pow(r,2)*self.dr
+        it = (t-self.tmin) / self.dt
+        for r in range(int(self.g.rFF(t) / self.dr)):
+            ret += D3He(self.sTi[r,it])*pow(self.sni[r,it],2)*(fD*f3He)*4*math.pi*pow(r*self.dr,2)*self.dr
         return ret
     def HeHerate(self, t):
         """Calculate the 3He3He burn rate at time t (s)."""
@@ -118,8 +201,9 @@ class Postproc:
             return 0
         
         ret = 0
-        for r in list(numpy.arange(self.rmin, self.rmax, self.dr)):
-            ret += HeHe(self.g.Ti(r,t))*pow(self.g.ni(r,t),2)*(f3He*f3He/2)*4*math.pi*pow(r,2)*self.dr
+        it = (t-self.tmin) / self.dt
+        for r in range(int(self.g.rFF(t) / self.dr)):
+            ret += HeHe(self.sTi[r,it])*pow(self.sni[r,it],2)*(f3He*f3He/2)*4*math.pi*pow(r*self.dr,2)*self.dr
         return ret
 
     # ------------------------------------
@@ -132,8 +216,9 @@ class Postproc:
             return 0
         
         ret = 0
-        for r in list(numpy.arange(self.rmin, self.rmax, self.dr)):
-            ret += self.g.Ti(r,t)*DD(self.g.Ti(r,t))*pow(self.g.ni(r,t),2)*(fD*fD/2)*4*math.pi*pow(r,2)*self.dr
+        it = (t-self.tmin) / self.dt
+        for r in range(int(self.g.rFF(t) / self.dr)):
+            ret += self.sTi[r,it]*DD(self.sTi[r,it])*pow(self.sni[r,it],2)*(fD*fD/2)*4*math.pi*pow(r*self.dr,2)*self.dr
         return ret
     def D3HeTirate(self, t):
         """Calculate the D3He burn rate at time t (s)."""
@@ -143,18 +228,20 @@ class Postproc:
             return 0
         
         ret = 0
-        for r in list(numpy.arange(self.rmin, self.rmax, self.dr)):
-            ret += self.g.Ti(r,t)*D3He(self.g.Ti(r,t))*pow(self.g.ni(r,t),2)*(fD*f3He)*4*math.pi*pow(r,2)*self.dr
+        it = (t-self.tmin) / self.dt
+        for r in range(int(self.g.rFF(t) / self.dr)):
+            ret += self.sTi[r,it]*D3He(self.sTi[r,it])*pow(self.sni[r,it],2)*(fD*f3He)*4*math.pi*pow(r*self.dr,2)*self.dr
         return ret
     def HeHeTirate(self, t):
-        """Calculate the 3He3He burn rate at time t (s)."""
-        f3He = self.g.f2 # 3He fraction (atomic)
+        """Calculate the DD Ti 'burn rate' at time t (s)."""
+        f3He = self.g.f2 # D fraction (atomic)
         if f3He == 0:
             return 0
         
         ret = 0
-        for r in list(numpy.arange(self.rmin, self.rmax, self.dr)):
-            ret += self.g.Ti(r,t)*HeHe(self.g.Ti(r,t))*pow(self.g.ni(r,t),2)*(f3He*f3He/2)*4*math.pi*pow(r,2)*self.dr
+        it = (t-self.tmin) / self.dt
+        for r in range(int(self.g.rFF(t) / self.dr)):
+            ret += self.sTi[r,it]*HeHe(self.sTi[r,it])*pow(self.sni[r,it],2)*(f3He*f3He/2)*4*math.pi*pow(r*self.dr,2)*self.dr
         return ret
 
     # ------------------------------------
@@ -164,7 +251,74 @@ class Postproc:
         """Print relevant trajectories in the problem."""
         t0 = self.g.tc-self.g.t0
         File = csv.writer(open(os.path.join(self.name,'Trajectories.csv'),'w'))
-        File.writerow( ["t (s)", "rs (cm)", "us (cm/s)", "rFF (1/s)"] )
+        File.writerow( ["t (s)", "rs (cm)", "us (cm/s)", "rFF (cm)", "rShell (cm)"] )
         for t in list(numpy.arange(t0, self.tmax, self.dt)):
-            File.writerow( [t, self.g.rs(t), self.g.us(t)] )
-        
+            File.writerow( [t, self.g.rs(t), self.g.us(t), self.g.rFF(t), self.g.rShell(t)] )
+
+    # ------------------------------------
+    # Calculators for various plasma parameters
+    # See formulary for reference
+    # ------------------------------------        
+    def IonMFP(self,r,t):
+        """Calculate the ion mean free path (cm)."""
+        if self.g.ni(r,t) == 0:
+            return 0
+        return (2.28e7)*(1./self.g.FuelZ)*math.sqrt( self.g.FuelA/self.g.ni(r,t) )
+    def Tauii(self,r,t):
+        """Calculate the ion-ion collision time (s)."""
+        if self.g.ni(r,t) == 0:
+            return 0
+        nu = (4.80e-8)*pow(self.g.FuelZ,4)*math.sqrt(1/(self.g.FuelA*pow(1000*self.g.Ti(r,t),3)))*self.g.ni(r,t)*self.LogL(r,t)
+        return (1./nu)
+    def LambdaD(self,r,t):
+        """Calculate the Debye length (cm)."""
+        if self.g.ni(r,t) == 0:
+            return 0
+        #kB=1.381e-16
+        #e=4.803e-10
+        #return math.sqrt(kB*self.g.Ti(r,t)*1000*11600 / (4*3.1415*self.g.ni(r,t)*e*e))
+        return (7.43e2)*math.sqrt( 1000*self.g.Ti(r,t) / ((self.g.FuelZ+1)*self.g.ni(r,t)) )
+    def uTherm(self,r,t):
+        """Calculate the ion thermal velocity (cm/s)."""
+        ret = (9.79e5)*math.sqrt( 1000*self.g.Ti(r,t)/self.g.FuelZ )
+        return max(1,ret) #causes problems if u = 0
+    def LogL(self,r,t): #See C.K. Li PRL 1993
+        """Calculate the Coulomb logarithm."""
+        if self.g.ni(r,t) == 0:
+            return 0
+        mp = 1.6726e-24 #g
+        mr = mp*self.g.FuelA/2.
+        e = 4.803e-10
+        pperp = pow(e*self.g.FuelZ,2) / (mr * pow(self.uTherm(r,t),2) )
+        hbar = 1.0546e-27 #cgs
+        pmin = math.sqrt( pow(pperp,2) + pow(hbar/(2*mr*self.uTherm(r,t)),2) )
+        return math.log( self.LambdaD(r,t) / pmin )
+
+    # ------------------------------------
+    # Calculate thermal energy in the gas
+    # ------------------------------------
+    def ThermalEnergy(self,t):
+        """Calculate the total thermal energy in the gas at time t (s). Returns Joules."""
+        Energy = 0.
+        it = (t-self.tmin) / self.dt
+        kB=1.381e-16 #cgs
+        for r in range(int(self.g.rShell(t) / self.dr)-1):
+            Vol = 4*3.1415*pow(r*self.dr,2)*self.dr
+            Energy += 1.5*self.sni[r,it]*Vol*kB*self.sTi[r,it]*11600000.
+        return Energy*1e-7
+    def KineticEnergy(self,t):
+        """Calculate the total kinetic energy in the gas at time t (s). Returns Joules."""
+        Energy = 0.
+        it = (t-self.tmin) / self.dt
+        mp = 1.6726e-24 #g
+        for r in range(int(self.g.rShell(t) / self.dr)-1):
+            Vol = 4*3.1415*pow(r*self.dr,2)*self.dr
+            Energy += 0.5*mp*self.g.FuelA*self.sni[r,it]*Vol*pow(self.g.u(r,t),2)
+        return Energy*1e-7
+    def PrintEnergy(self):
+        """Print the thermal energy versus time."""
+        t0 = self.g.tc-self.g.t0
+        File = csv.writer(open(os.path.join(self.name,'Energy.csv'),'w'))
+        File.writerow( ["t (s)", "E (J)"] )
+        for t in list(numpy.arange(t0, self.tmax, self.dt)):
+            File.writerow( [t, self.ThermalEnergy(t)+self.KineticEnergy(t) ] )

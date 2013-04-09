@@ -2,7 +2,7 @@
 # This code uses CGS units
 #
 # Author: Alex Zylstra
-# Date: 2012/01/27
+# Date: 2012/02/06
 
 import math
 import numpy
@@ -75,6 +75,9 @@ class Guderley:
     UouterInt = 0
     UcentralInt = 0
 
+    #Shell trajectory
+    rShellInt = 0
+
     #List of points for C vs xi
     CvsXiShock = []
     CvsXiShockInt = 0
@@ -106,6 +109,7 @@ class Guderley:
         self.calcSingPoints()
         self.UCTrajectories()
         self.CalcUCG()
+        self.rShellInit()
         return    
 
     # ------------------------------------
@@ -116,7 +120,7 @@ class Guderley:
         self.r0 = pow(10,-4.)*float(input("Radius (um): "))
         #self.rho0 = pow(10,-3)*float(input("Density (mg/cm3): "))
         self.tc = pow(10,-9)*float(input("Collapse time (ns): "))
-        self.xish = pow(10,-4)*pow(10,9*self.alpha)*float(input("Shock strength (um/nsa): "))
+        self.xish = pow(10,-4)*pow(10,9*self.alpha)*float(input("Shock strength (um/ns^a): "))
         self.xirsh = 0.740 * self.xish
         #fuel info
         self.f1 = float(input("D2 fill (atm): "))
@@ -148,6 +152,28 @@ class Guderley:
         if t > self.tc:
             strength = self.xirsh
         return strength * self.alpha * pow( math.fabs(t-self.tc) , self.alpha-1 )
+    def rFF(self,t):
+        """Calculate the 'free fall' radius at time t (s). Returns rFF in cm."""
+        uFF = self.u(self.r0 , (self.tc - self.t0 + 1e-12) )
+        ret = max( 0. , (self.r0 - (t-(self.tc-self.t0))*uFF) )
+        return ret
+    def tFF(self):
+        """Calculate when the 'free fall' mass hits the origin. Returns tFF in s."""
+        uFF = self.u(self.r0 , (self.tc - self.t0 + 1e-12) )
+        return ( self.r0/uFF + (self.tc-self.t0) )
+    def rShellInit(self):
+        """Do initial numerical integration for shell position vs time calculations."""
+        times = list(numpy.arange(self.tc-self.t0,self.tFF(),1e-12))
+        rList = scipy.integrate.odeint(self.uNeg, self.r0, times)
+        #fix list formatting
+        rList2 = []
+        for i in rList:
+            rList2.append(i[0])
+        #interpolate
+        self.rShellInt = scipy.interpolate.interp1d(times, rList2)
+    def rShell(self,t):
+        """Shell position at time t (s). Returns rShell in cm."""
+        return self.rShellInt(t)[()]
 
     # ------------------------------------
     # Self-similarity coordinate
@@ -455,6 +481,11 @@ class Guderley:
         """Fluid velocity u(r,t) with r in cm and t in s. Returns u in um/ns."""
         if t != self.tc:
             return self.alpha*r/math.fabs(t-self.tc)*self.U(r,t)
+        return 0
+    def uNeg(self, r, t):
+        """Fluid velocity u(r,t) with r in cm and t in s. Returns u in um/ns. -1 times u(r,t)"""
+        if t != self.tc:
+            return -1.*self.alpha*r/math.fabs(t-self.tc)*self.U(r,t)
         return 0
     def c(self, r, t):
         """Sound speed c(r,t) with r in cm and t in s Returns c in um/ns."""
