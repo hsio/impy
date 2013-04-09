@@ -2,7 +2,7 @@
 # This code uses CGS units
 #
 # Author: Alex Zylstra
-# Date: 2012/08/14
+# Date: 2012/08/15
 
 import math
 import numpy
@@ -92,13 +92,40 @@ class Guderley:
     # ------------------------------------
     # Initialization
     # ------------------------------------
-    def __init__(self):
+    def __init__(self, args=None):
+        print("foo")
         self.name = os.path.join(OutputDir , 'Guderley')
         #create a directory named name if it doesn't exist
         d = os.path.dirname(self.name)
         if not os.path.exists(self.name):
             os.makedirs(self.name)
         
+        if args == None:
+            self.doConfig()
+        else:
+            if len(args) < 6:
+                print("Bad input!")
+                sys.exit()
+            #shock info
+            self.r0 = pow(10,-4.)*float(args[0])
+            self.tc = pow(10,-9)*float(args[1])
+            self.xish = pow(10,-4)*pow(10,9*self.alpha)*float(args[2])
+            self.xirsh = 0.740 * self.xish
+            self.t0 = pow(self.r0/self.xish,1./self.alpha)
+            
+            #fuel info
+            self.f1 = float(args[3])
+            self.rho0 = self.f1*0.08988*2/1000
+            self.f2 = float(args[4])
+            self.rho0 += self.f2*0.1786*(3/4)/1000
+            temp = 2*self.f1 + self.f2 #in atm
+            self.f1 = self.f1*2 / temp
+            self.f2 = self.f2 / temp
+            self.FuelA = self.f1*self.Ion1A + self.f2*self.Ion2A
+            self.FuelZ = self.f1*self.Ion1Z + self.f2*self.Ion2Z
+            
+            self.eiCoup = float(args[5])
+            
         self.runGuderley() #do the actual Guderley calculation
     
     # ------------------------------------
@@ -106,7 +133,6 @@ class Guderley:
     # ------------------------------------
     def runGuderley(self):
         """Top-level method to do the Guderley calculation."""
-        self.doConfig()
         self.calcSingPoints()
         self.UCTrajectories()
         self.CalcUCG()
@@ -118,7 +144,7 @@ class Guderley:
     # Set up the problem
     # ------------------------------------
     def doConfig(self):
-        """Configure the top-level parameters."""
+        """Configure the top-level parameters via CLI."""
         #Read in shock info
         self.r0 = pow(10,-4.)*float(input("Radius (um): "))
         self.tc = pow(10,-9)*float(input("Collapse time (ns): "))
@@ -127,7 +153,6 @@ class Guderley:
         self.t0 = pow(self.r0/self.xish,1./self.alpha)
         
         #fuel info
-        #self.rho0 = pow(10,-3)*float(input("Density (mg/cm3): "))
         self.f1 = float(input("D2 fill (atm): "))
         self.rho0 = self.f1*0.08988*2/1000
         self.f2 = float(input("3He fill (atm): "))

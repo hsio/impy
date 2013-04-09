@@ -1,9 +1,9 @@
 # Add implosion types to this file so they can be selected
 # To add options, follow instructions where comments are
 # marked [MODIFY]
-# A. Zylstra 2012/08/07
+# A. Zylstra 2012/08/15
 
-from datetime import *
+import sys
 from Implosion import * #abstract class
 
 # [MODIFY] add line:
@@ -30,7 +30,6 @@ def implSelector():
         index += 1
     mode = int(input("mode = "))
     
-    t1 = datetime.now()
     print("Generate implosion...")
     impl = 0
     # [MODIFY] add your class here, in same order as implTypes array
@@ -40,8 +39,24 @@ def implSelector():
         impl = LILAC()
     if mode == 2:
         impl = HYADES()
+        
+    return impl
     
-    t2 = datetime.now()
-    print( '{:.1f}'.format((t2-t1).total_seconds()) + "s elapsed")
+def implAuto():
+    """Automatic implosion generation from command line arguments."""
+    #sanity check
+    if len(sys.argv) < 3:
+        print("ERROR: not enough input parameters")
+        sys.exit()
+    
+    mode = float(sys.argv[2])
+    impl = 0
+    # [MODIFY] add your class here, in same order as implTypes array
+    if mode == 0:
+        impl = Guderley(sys.argv[3:])
+    if mode == 1:
+        impl = LILAC(sys.argv[3])
+    if mode == 2:
+        impl = HYADES(sys.argv[3])
     
     return impl

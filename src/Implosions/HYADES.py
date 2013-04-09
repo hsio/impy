@@ -67,9 +67,12 @@ class HYADES:
     # ------------------------------------
     # Initialization
     # ------------------------------------
-    def __init__(self):
+    def __init__(self, fname=None):
         """Initialization. 'file' is the path to the HYADES file."""
-        self.filename = input("HYADES file: ")
+        if fname == None:
+            self.filename = input("HYADES file: ")
+        else:
+            self.filename = fname
         self.file = scipy.io.netcdf.netcdf_file(self.filename,'r')
         self.readHYADES()
         self.rRegionInit()
@@ -166,13 +169,13 @@ class HYADES:
         return self.uInt([[r,t*1e9]])[0]
     def c(self, r, t):
         """Sound speed c(r,t) with r in cm and t in s Returns c in um/ns."""
-        return 0
+        return math.sqrt( (5/3) * self.P(r,t) * pow(10,15) / self.rho(r,t) )
     def rho(self, r, t):
         """Density rho(r,t) with r in cm and t in s Returns rho in g/cm3."""
-        return 0
+        return self.ni(r,t) * mp * numpy.dot( self.IonF(r,t) , self.IonA(r,t) )
     def P(self, r, t):
         """Pressure P(r,t) with r in cm and t in s Returns P in GBar."""
-        return 0
+        return (kB * (self.ni(r,t)*self.Ti(r,t) + self.ne(r,t)*self.Te(r,t)) * 11600*1000) * pow(10,-15)
         
     # ------------------------------------
     # Find timescales in the problem

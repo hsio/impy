@@ -76,9 +76,12 @@ class LILAC:
     # ------------------------------------
     # Initialization
     # ------------------------------------
-    def __init__(self):
+    def __init__(self, fname=None):
         """Initialization. 'file' is the path to the LILAC output."""
-        self.filename = input("LILAC file: ")
+        if fname == None:
+            self.filename = input("LILAC file: ")
+        else:
+            self.filename = fname
         self.file = open(self.filename,'r')
         self.readLILAC()
         self.tc = self.find_tc()
@@ -201,7 +204,7 @@ class LILAC:
     def uLab(self, r, t):
         """Fluid velocity u(r,t) with r in cm and t in s. Returns u in um/ns."""
         t = t * 1e9 #convert from s to ns
-        return uInt([[r,t]])[0]
+        return self.uInt([[r,t]])[0]
     def u(self, r, t):
         """Fluid velocity u(r,t) with r in cm and t in s. Returns u in um/ns."""
         return self.uLab(r,t)
@@ -210,7 +213,7 @@ class LILAC:
         return math.sqrt( self.gamma*self.P(r,t) / self.rho(r,t) )
     def rho(self, r, t):
         """Density rho(r,t) with r in cm and t in s Returns rho in g/cm3."""
-        return self.mp*self.FuelA*self.ni(r,t)
+        return self.mp*self.Abar( self.RegionIdent(r,t) )*self.ni(r,t)
     def T(self, r, t):
         """One-fluid hydro temperature T(r,t) with r in cm and t in s Returns T in keV."""
         return self.Ti(r,t)
@@ -232,7 +235,7 @@ class LILAC:
         return self.niInt([[r,t]])[0]
     def ne(self, r, t):
         """Electron number density ne(r,t) with r in cm and t in s Returns ne in 1/cm^3."""
-        return self.ni(r,t) * self.FuelZ
+        return self.ni(r,t) * self.Zbar( self.RegionIdent(r,t) )
     
         
     # ------------------------------------
