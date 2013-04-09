@@ -52,13 +52,38 @@ def Eg(Ti,Z1,Z2,A1,A2):
     
 # -----------------------------------------------
 #      cross sections
+#   from Bosch and Hale, Nucl. Fusion 32, 5 (1992)
 # -----------------------------------------------
+def S(En):
+    """S-factor, using fit formalism in Bosch and Hale."""
+    return 0
 def sigmaDDn(En):
     """ DD cross section as a function of CM energy. [E] = keV, [sigma] = cm^2."""
-    return (1.e-24) * (372 / (1+pow(1.220-4.36e-4*En,2))) / (En*(math.exp(46.097/math.sqrt(En)) - 1))
+    A1 = 5.3701e4
+    A2 = 3.3027e2
+    A3 = -1.2706e-1
+    A4 = 2.9327e-5
+    A5 = -2.5151e-9
+    SE = (A1 + En*(A2 + En*(A3 + En*(A4 + En*A5))))
+    BG = 31.3970
+    return (1.e-27) * SE / ( En*math.exp(BG/math.sqrt(En)) )
 def sigmaD3He(En):
     """ D3He cross section as a function of CM energy. [E] = keV, [sigma] = cm^2."""
-    return (1.e-24) * (647 + 50200/(1+pow(1.076 - 3.98e-2*En,2))) / (En*(math.exp(89.27/math.sqrt(En))-1))
+    A1 = 5.7501e6
+    A2 = 2.5226e3
+    A3 = 4.5566e1
+    B1 = -3.1995e-3
+    B2 = -8.5530e-6
+    B3 = 5.9014e-8
+    SE = (A1 + En*(A2+En*A3)) / (1 + En*(B1+En*(B2+En*B3)))
+    BG = 68.7508
+    return (1.e-27) * SE / ( En*math.exp(BG/math.sqrt(En)) )
 def sigmaHeHe(En):
     """ 3He3He cross section as a function of CM energy. [E] = keV, [sigma] = cm^2."""
-    return (1.e-24) * (5000 / En) * math.exp(-31.29*4.0*math.sqrt(3/En))
+    #return (1.e-24) * (5000 / En) * math.exp(-31.29*4.0*math.sqrt(3/En))
+    #Adelberger et al, 2010
+    Sa = 5.32 #MeV b
+    Sb = -6.44 #b
+    Sc = 30.7 #b / MeV
+    S = Sa + Sb*En*1e-3 + Sc*math.pow(En*1e-3,2) # MeV b
+    return (1.e-24) * (S/(1e-3*En)) * math.exp(-31.29*4.0*math.sqrt(3/En))
