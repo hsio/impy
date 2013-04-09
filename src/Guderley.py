@@ -2,7 +2,7 @@
 # This code uses CGS units
 #
 # Author: Alex Zylstra
-# Date: 2012/02/07
+# Date: 2012/02/08
 
 import math
 import numpy
@@ -18,27 +18,29 @@ class Guderley:
     # Global variables within this class
     # -----------------------------------------------------------
     # user specified parameters (default values here)
-    r0 = 0.08
-    rho0 = 0.005
-    tc = pow(10,-9)
-    xish = 400
-    xirsh = xish*.74
-    f1 = 0.5
-    f2 = 0.5
-    eiCoup = 0.
+    r0 = 0.08 #initial radius
+    rho0 = 0.005 #initial gas density
+    tc = pow(10,-9) #collapse time
+    t0 = 0.
+    xish = 400 #incoming shock strength
+    xirsh = xish*.74 #reshock strength
+    eiCoup = 0. #Rygg ei coupling constant
     name = "Guderley"
 
     # constants
-    gamma = 5./3.
-    n = 3.
+    gamma = 5./3. #ideal monoatomic gas
+    n = 3. #spherical geometry
     alpha = 0.68838
+    #D info, fraction
     Ion1 = "D"
     Ion1A = 2.
     Ion1Z = 1.
+    f1 = 0.5
+    #3He info, fraction
     Ion2 = "3He"
     Ion2A = 3.
     Ion2Z = 2.
-    t0 = 0.
+    f2 = 0.5
     FuelA = 0
     FuelZ = 0
 
@@ -75,8 +77,9 @@ class Guderley:
     UouterInt = 0
     UcentralInt = 0
 
-    #Shell trajectory
-    rShellInt = 0
+    #Trajectory
+    rShellInt = 0 #for shell trajectory
+    rLagrangeInt = 0 #for Lagrange plots
 
     #List of points for C vs xi
     CvsXiShock = []
@@ -98,7 +101,7 @@ class Guderley:
         if not os.path.exists(name):
             os.makedirs(name)
         
-        self.runGuderley()
+        self.runGuderley() #do the actual Guderley calculation
     
     # ------------------------------------
     # Calculate the Guderley solution
@@ -117,12 +120,15 @@ class Guderley:
     # ------------------------------------
     def doConfig(self):
         """Configure the top-level parameters."""
+        #Read in shock info
         self.r0 = pow(10,-4.)*float(input("Radius (um): "))
-        #self.rho0 = pow(10,-3)*float(input("Density (mg/cm3): "))
         self.tc = pow(10,-9)*float(input("Collapse time (ns): "))
         self.xish = pow(10,-4)*pow(10,9*self.alpha)*float(input("Shock strength (um/ns^a): "))
         self.xirsh = 0.740 * self.xish
+        self.t0 = pow(self.r0/self.xish,1./self.alpha)
+        
         #fuel info
+        #self.rho0 = pow(10,-3)*float(input("Density (mg/cm3): "))
         self.f1 = float(input("D2 fill (atm): "))
         self.rho0 = self.f1*0.08988*2/1000
         self.f2 = float(input("3He fill (atm): "))
@@ -132,13 +138,13 @@ class Guderley:
         self.f2 = self.f2 / temp
         self.FuelA = self.f1*self.Ion1A + self.f2*self.Ion2A
         self.FuelZ = self.f1*self.Ion1Z + self.f2*self.Ion2Z
-        self.t0 = pow(self.r0/self.xish,1./self.alpha)
+        
         self.eiCoup = float(input("Rygg coupling parameter: "))
         
         return   
 
     # ------------------------------------
-    # Calculate shock trajectories and velocities
+    # Calculate various trajectories and velocities
     # ------------------------------------
     def rs(self,t):
         """Calculate the shock position at time t (s). Returns rs in cm."""
@@ -163,7 +169,7 @@ class Guderley:
         return ( self.r0/uFF + (self.tc-self.t0) )
     def rShellInit(self):
         """Do initial numerical integration for shell position vs time calculations."""
-        times = list(numpy.arange(self.tc-self.t0,self.tFF(),1e-12))
+        times = list(numpy.arange(self.tc-self.t0,self.tFF(),0.5e-12))
         rList = scipy.integrate.odeint(self.uLab, self.r0, times)
         #fix list formatting
         rList2 = []
@@ -174,6 +180,20 @@ class Guderley:
     def rShell(self,t):
         """Shell position at time t (s). Returns rShell in cm."""
         return self.rShellInt(t)[()]
+    def rLagrangeInit(self,ri):
+        """Integrate a Lagrangian trajectory starting at r0. Must be run betfore calling rLagrange(t). takes r in cm."""
+        times = list(numpy.arange(self.tc-self.t0,self.tFF(),0.5e-12))
+        rList = scipy.integrate.odeint(self.uLab, ri, times)
+        #fix list formatting
+        rList2 = []
+        for i in rList:
+            rList2.append(i[0])
+        #interpolate
+        self.rLagrangeInt = scipy.interpolate.interp1d(times, rList2)
+        return
+    def rLagrange(self,t):
+        """Lagrangian trajectory position at time t (s). Returns r in cm."""
+        return self.rLagrangeInt(t)[()]
 
     # ------------------------------------
     # Self-similarity coordinate
@@ -510,6 +530,9 @@ class Guderley:
     def Ti(self, r, t):
         """Rygg-style ion temperature with defined e-i coupling Ti(r,t) with r in cm and t in s Returns Ti in keV."""
         return (0.001 * self.FuelA * self.AMU * pow(self.c(r,t),2) / self.Erg2eV) * (1.0 - self.eiCoup * self.FuelZ / (1.+self.FuelZ))
+    def Te(self, r, t):
+        """Rygg-style electron temperature with r in cm and t in s. Returns Te in keV."""
+        return (self.T(r,t) - self.Ti(r,t))/self.FuelZ
     def ni(self, r, t):
         """Ion number density ni(r,t) with r in cm and t in s Returns ni in 1/cm^3."""
         return self.rho(r,t) / (self.FuelA * self.AMU)

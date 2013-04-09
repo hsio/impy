@@ -1,6 +1,6 @@
 # Python-based Guderley imploding shock calculations
 # This is the post-processor
-# A. Zylstra 2012/02/07
+# A. Zylstra 2012/02/08
 
 from Guderley import *
 from Reactivity import *
@@ -293,9 +293,16 @@ class Postproc:
         hbar = 1.0546e-27 #cgs
         pmin = math.sqrt( pow(pperp,2) + pow(hbar/(2*mr*self.uTherm(r,t)),2) )
         return math.log( self.LambdaD(r,t) / pmin )
+    def PFermi(self,r,t):
+        """Calculate the Fermi pressure at radius r (cm), time t (ns)."""
+        h = 6.626e-27 #erg*s
+        me = 9.109e-28 #g
+        ne = self.g.ne(r,t)
+        Pf = ( pow(h,2) / (20*me) )*pow(3/3.1415,2/3)*pow(ne,5/3) #dyn
+        return Pf *1e-6 * 1e-9 #Gbar
 
     # ------------------------------------
-    # Calculate thermal energy in the gas
+    # Calculate energy, entropy in the gas
     # ------------------------------------
     def ThermalEnergy(self,t):
         """Calculate the total thermal energy in the gas at time t (s). Returns Joules."""
@@ -304,21 +311,55 @@ class Postproc:
         kB=1.381e-16 #cgs
         for r in range(int(self.g.rShell(t) / self.dr)-1):
             Vol = 4*3.1415*pow(r*self.dr,2)*self.dr
-            Energy += 1.5*self.sni[r,it]*Vol*kB*self.sTi[r,it]*11600000.
+            #ion thermal energy
+            Energy += 1.5*self.sni[r,it]*Vol*kB*self.sTi[r,it]*11600.*1000.
+            #electron thermal energy
+            Energy += 1.5*self.g.ne(r*self.dr,it*self.dt)*Vol*kB*self.g.Te(r*self.dr,it*self.dt)*11600.*1000.
         return Energy*1e-7
-    def KineticEnergy(self,t):
-        """Calculate the total kinetic energy in the gas at time t (s). Returns Joules."""
-        Energy = 0.
-        it = (t-self.tmin) / self.dt
-        mp = 1.6726e-24 #g
+    def alpha(self,t):
+        """Calculate mass-weighted ratio of hydro pressure to Fermi pressure at time t."""
+        it = (t-self.tmin) / self.dt #time index
+        mp = 1.672e-24 #g
+        TotalMass = 1e-12
+        alpha = 0.
         for r in range(int(self.g.rShell(t) / self.dr)-1):
             Vol = 4*3.1415*pow(r*self.dr,2)*self.dr
-            Energy += 0.5*mp*self.g.FuelA*self.sni[r,it]*Vol*pow(self.g.u(r,t),2)
-        return Energy*1e-7
-    def PrintEnergy(self):
-        """Print the thermal energy versus time."""
+            Mass = Vol*self.sni[r,it]*self.g.FuelZ*mp
+            Pf = max(self.PFermi(r*self.dr,t) , 1e-9)
+            alpha += (self.g.P(r*self.dr,t) / Pf ) * Mass
+            TotalMass += Mass
+        alpha = alpha / TotalMass
+        return alpha
+    def EnergyEntropy(self):
+        """Print the thermal energy versus time, and calculates entropy."""
         t0 = self.g.tc-self.g.t0
         File = csv.writer(open(os.path.join(self.name,'Energy.csv'),'w'))
-        File.writerow( ["t (s)", "E (J)"] )
-        for t in list(numpy.arange(t0, self.tmax, self.dt)):
-            File.writerow( [t, self.ThermalEnergy(t)+self.KineticEnergy(t) ] )
+        maxE = 0. #max energy dumped into gas after shock collapse
+        maxA = 0. #max alpha in gas after shock collapse
+        File.writerow( ["t (s)", "E (J)", "alpha"] )
+        for t in list(numpy.arange(t0, self.tmax-self.dt, self.dt)):
+            tempE = self.ThermalEnergy(t)
+            tempA = self.alpha(t)
+            if t > self.g.tc and tempE > maxE:
+                maxE = tempE
+            if t > self.g.tc and tempA > maxA:
+                maxA = tempA
+            File.writerow( [t, tempE, tempA ] )
+        
+        File = csv.writer(open(os.path.join(self.name,'SE_Summary.csv'),'w'))
+        File.writerow( ["Thermal energy in gas after shock = " + str(maxE) + "J"] )
+        File.writerow( ["Max gas P / Pf = " + str(maxA)] )
+        
+    
+    # ------------------------------------
+    # Make Lagrange plots
+    # ------------------------------------
+    def LagrangePlots(self):
+        """Make Lagrange plots of initial gas material."""
+        File = csv.writer(open(os.path.join(self.name,'Lagrange.csv'),'w'))
+        dr = 30e-4 #30um spacing
+        for r in list(numpy.arange(0,self.g.r0, dr)):
+            self.g.rLagrangeInit(r)
+            for t in list(numpy.arange(self.g.tc - self.g.t0, self.g.tFF()-self.dt, self.dt)):
+                File.writerow( [ t , self.g.rLagrange(t) ] )
+            File.writerow([])
