@@ -13,8 +13,8 @@ import os, sys, inspect
 print("----------------------------------------")
 print("pyImplosion")
 print("Author: Alex Zylstra")
-print("Date: Aug 31, 2012")
-print("v0.7.1")
+print("Date: Sep 05, 2012")
+print("v0.7.2")
 print("----------------------------------------")
 
 #path setup

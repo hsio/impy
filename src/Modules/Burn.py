@@ -28,6 +28,12 @@ def f3He(impl, r, t):
         if impl.IonA(r,t)[i] == 3 and impl.IonZ(r,t)[i] == 2:
             return impl.IonF(r,t)[i]
     return 0
+def fT(impl, r, t):
+    """Calculate 3Te fraction in implosion impl."""
+    for i in range( len(impl.IonF(r,t)) ):
+        if impl.IonA(r,t)[i] == 3 and impl.IonZ(r,t)[i] == 1:
+            return impl.IonF(r,t)[i]
+    return 0
     
 # ------------------------------------
 # Burn rate calculators
@@ -74,6 +80,36 @@ def HeHerate(impl, t):
         ret += temp
         ret2 += temp*impl.Ti(r1,t)
     return [ret , ret2]
+
+def DTrate(impl, t):
+    """Calculate the DT burn rate at time t (s)."""
+    f1 = 0 # D fraction (atomic)
+    f2 = 0 # T fraction (atomic)
+    ret = 0
+    ret2 = 0 #Ti 'rate'
+
+    for r in arange( impl.rmin(t) , impl.rfuel(t) , dr ):
+        r1 = r + dr/2
+        f1 = fD(impl,r1,t)
+        f2 = fT(impl,r1,t)
+        temp = DT(impl.Ti(r1,t))*pow(impl.ni(r1,t),2)*(f1*f2)*4*math.pi*pow(r1,2)*dr
+        ret += temp
+        ret2 += temp*impl.Ti(r1,t)
+    return [ret , ret2]
+
+def TTrate(impl, t):
+    """Calculate the TT burn rate at time t (s)."""
+    f1 = 0 # T fraction (atomic)
+    ret = 0
+    ret2 = 0 #Ti 'rate'
+
+    for r in arange( impl.rmin(t) , impl.rfuel(t) , dr ):
+        r1 = r + dr/2
+        f1 = fT(impl,r1,t)
+        temp = TT(impl.Ti(r1,t))*pow(impl.ni(r1,t),2)*(f1*f1/2)*4*math.pi*pow(r1,2)*dr
+        ret += temp
+        ret2 += temp*impl.Ti(r1,t)
+    return [ret , ret2]
  
 # ------------------------------------
 # Main method
@@ -90,21 +126,29 @@ def run(impl):
     YDD = 0
     YD3He = 0
     YHeHe = 0
+    YDT = 0
+    YTT = 0
     # ion temps (burn-averaged)
     TiDD = 0
     TiD3He = 0
     TiHeHe = 0
+    TiDT = 0
+    TiTT = 0
     # Bang (peak emission) times
     BTDD = 0
     BTD3He = 0
     BTHeHe = 0
+    BTDT = 0
+    BTTT = 0
     PeakRateDD = 0
     PeakRateD3He = 0
     PeakRateHeHe = 0
+    PeakRateDT = 0
+    PeakRateTT = 0
     
     # output files
     rateFile = csv.writer(open(os.path.join(OutputDir,'BurnRate.csv'),'w'))
-    rateFile.writerow( ["t (s)", "DD (1/s)", "D3He (1/s)", "3He3He (1/s)"] )
+    rateFile.writerow( ["t (s)", "DD (1/s)", "D3He (1/s)", "3He3He (1/s)", "DT (1/s)", "TT (1/s)"] )
     yieldFile = csv.writer(open(os.path.join(OutputDir,'Yield.csv'),'w'))
     TiFile = csv.writer(open(os.path.join(OutputDir,'Ti.csv'),'w'))
     BTFile = csv.writer(open(os.path.join(OutputDir,'BangTime.csv'),'w'))
@@ -132,8 +176,22 @@ def run(impl):
         if d3He3He > PeakRateHeHe:
             BTHeHe = t
             PeakRateHeHe = d3He3He
+        #DD
+        [dDT, dTiDT] = DTrate(impl,t)
+        YDT += dDT*dt
+        TiDT += dTiDT*dt
+        if dDT > PeakRateDT:
+            BTDT = t
+            PeakRateDT = dDT
+        #DD
+        [dTT, dTiTT] = TTrate(impl,t)
+        YTT += dTT*dt
+        TiTT += dTiTT*dt
+        if dTT > PeakRateTT:
+            BTTT = t
+            PeakRateTT = dTT
         #output
-        rateFile.writerow( [t, dDD, dD3He, d3He3He] )
+        rateFile.writerow( [t, dDD, dD3He, d3He3He, dDT, dTT] )
     
     #If there is yield for a species, do output:
     if YDD > 0:
@@ -160,4 +218,20 @@ def run(impl):
         yieldFile.writerow( ["3He3He",YHeHe] )
         TiFile.writerow( ["3He3He",TiHeHe] )
         BTFile.writerow( ["3He3He",BTHeHe] )
+    if YDT > 0:
+        TiDT = TiDT / YDT
+        print("DT yield = " + '{:.2e}'.format(YDT))
+        print("DT Ti = " + '{:.2f}'.format(TiDT))
+        print("DT BT = " + '{:.2e}'.format(BTDT))
+        yieldFile.writerow( ["DT",YDT] )
+        TiFile.writerow( ["DT",TiDT] )
+        BTFile.writerow( ["DT",BTDT] )
+    if YTT > 0:
+        TiTT = TiTT / YTT
+        print("TT yield = " + '{:.2e}'.format(YTT))
+        print("TT Ti = " + '{:.2f}'.format(TiTT))
+        print("TT BT = " + '{:.2e}'.format(BTTT))
+        yieldFile.writerow( ["TT",YTT] )
+        TiFile.writerow( ["TT",TiTT] )
+        BTFile.writerow( ["TT",BTTT] )
         
