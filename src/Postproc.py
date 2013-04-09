@@ -1,6 +1,6 @@
 # Python-based Guderley imploding shock calculations
 # This is the post-processor
-# A. Zylstra 2012/02/06
+# A. Zylstra 2012/02/07
 
 from Guderley import *
 from Reactivity import *
@@ -101,7 +101,7 @@ class Postproc:
                 if int(math.fabs(indexr + i)) < nr-1 and (j+indext) < nt-1 and (j+indext) >= 0 and int(math.fabs(indexr + i)) >= 0:
                     FinalVol += kern[int(math.fabs(indexr + i))][indext + j]*4*3.1415*pow(int(math.fabs(indexr + i))*self.dr,2)*self.dr
         if FinalVol > 0:
-            kern = kern * InitVol/FinalVol
+            kern = kern * pow(InitVol/FinalVol,2) #one factor of Vi/Vf for normalization of kernel, the other factor for "ideal gas" expansion cooling & number conservation
         return kern
 
     def gauss(self, r,t,mur,sigmar,mut,sigmat):

@@ -2,7 +2,7 @@
 # This code uses CGS units
 #
 # Author: Alex Zylstra
-# Date: 2012/02/06
+# Date: 2012/02/07
 
 import math
 import numpy
@@ -164,7 +164,7 @@ class Guderley:
     def rShellInit(self):
         """Do initial numerical integration for shell position vs time calculations."""
         times = list(numpy.arange(self.tc-self.t0,self.tFF(),1e-12))
-        rList = scipy.integrate.odeint(self.uNeg, self.r0, times)
+        rList = scipy.integrate.odeint(self.uLab, self.r0, times)
         #fix list formatting
         rList2 = []
         for i in rList:
@@ -478,14 +478,20 @@ class Guderley:
     # Hydro variables
     # ------------------------------------
     def u(self, r, t):
-        """Fluid velocity u(r,t) with r in cm and t in s. Returns u in um/ns."""
+        """Fluid velocity u(r,t) with r in cm and t in s. Returns u in um/ns, relative to shock direction."""
         if t != self.tc:
             return self.alpha*r/math.fabs(t-self.tc)*self.U(r,t)
         return 0
-    def uNeg(self, r, t):
-        """Fluid velocity u(r,t) with r in cm and t in s. Returns u in um/ns. -1 times u(r,t)"""
+    def uLab(self, r, t):
+        """Fluid velocity u(r,t) with r in cm and t in s. Returns u in um/ns, in lab frame."""
+        ret = self.u(r,t)
         if t != self.tc:
-            return -1.*self.alpha*r/math.fabs(t-self.tc)*self.U(r,t)
+            if t < self.tc: #incoming shock
+                return -1.*ret
+            if r < self.rs(t): #central flow
+                return ret
+            if r >= self.rs(t): #outer flow
+                return ret
         return 0
     def c(self, r, t):
         """Sound speed c(r,t) with r in cm and t in s Returns c in um/ns."""
