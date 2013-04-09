@@ -1,5 +1,5 @@
 # Fusion rate/xsection calculators
-# A. Zylstra 2012/08/22
+# A. Zylstra 2012/08/28
 
 #All reactivities use units cm^3/s
 import math
@@ -42,6 +42,14 @@ def HeHe(Ti):
     T = T9(Ti)
     return (1/Na)*5.59e10*pow(T,-2/3)*math.exp(-12.277*pow(T,-1/3))*(1-0.135*T+.0254*pow(T,2)-1.29e-3*pow(T,3))
 
+# -----------------------------------------------
+#      Gamow
+# -----------------------------------------------
+def Eg(Ti,Z1,Z2,A1,A2):
+    """Gamow energy, in keV."""
+    xi = 6.2696*pow(Z1*Z2,2/3)*pow(A1*A2/(A1+A2),1/3)
+    return xi * pow(Ti,2/3)
+    
 # -----------------------------------------------
 #      cross sections
 # -----------------------------------------------
