@@ -1,0 +1,43 @@
+----------------------------------------
+pyImplosion
+Author: Alex Zylstra
+Date: Sep 05, 2012
+v0.7.2
+----------------------------------------
+Auto implosion generation...
+4.6s elapsed
+----------------------------------------
+Running Burn...
+DD yield = 6.23e+11
+DD Ti = 9.28
+DD BT = 1.24e-09
+DT yield = 3.22e+14
+DT Ti = 11.11
+DT BT = 1.23e-09
+TT yield = 1.17e+11
+TT Ti = 9.65
+TT BT = 1.24e-09
+3.7s elapsed
+Running EnergyEntropy...
+1.2s elapsed
+Running MolvigBurn...
+Molvig DD yield = 4.69e+11
+Molvig DD Ecm = 29.20
+Molvig DD Ti = 8.37
+Molvig DD BT = 1.25e-09
+Molvig DT yield = 1.20e+14
+Molvig DT Ecm = 31.86
+Molvig DT Ti = 8.63
+Molvig DT BT = 1.24e-09
+Molvig TT yield = 8.21e+10
+Molvig TT Ecm = 31.43
+Molvig TT Ti = 8.59
+Molvig TT BT = 1.24e-09
+14.0s elapsed
+Running rhoR...
+7.0s elapsed
+Running Snapshot...
+WARNING: invalid snapshot time.
+0.0s elapsed
+Running Trajectories...
+0.6s elapsed

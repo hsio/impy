@@ -1,0 +1,64 @@
+v0.9.0
+Significant re-work of Molvig module. Tweaked burn module.
+
+v0.8.2
+Misc
+
+v0.8.1
+-Misc fiddling
+
+v0.8
+-Improvements to burn code
+-Improvements to plasma resources
+-Burn-averaged plasma calculator module
+
+v0.7.2
+-Added DT and TT functionality to Burn and MolvigBurn modules.
+
+v0.7.1
+-Added Molvig-weighted Ti
+
+v0.7.0
+-Identified and fixed serious bugs in Molvig burn code
+-Improved performance of Molvig burn
+
+v0.6.6
+-Updated cross sections in Fusion.py
+
+v0.6.5
+-Tweaks to Molvig module
+-Added functionality for Molvig average Ecm (instead of Ti)
+
+v0.6.4
+-Fixed bug in Molvig module
+
+v0.6.3
+-Added Molvig module
+-Improved performance of burn module
+
+v0.6.2
+-Added rfuel capability to Implosions and updated modules
+-Added Zbar, Abar capability to Implosions
+-Added snapshot module
+-Added rhoR module
+-Bug fixes
+
+v0.6.1
+-Added command line arguments (for batch, etc)
+-Added Trajectories module
+-Added EnergyEntropy module
+-Fixed various minor bugs
+-Added c, rho, P to HYADES module
+-Added bang times to burn module
+
+v0.6
+- LILAC and Guderley modules performance enhanced
+- Added speed test module
+- Added HYADES functionality
+
+v0.5 - MAJOR OVERHAUL
+Code restructured. 'Implosion' framework introduced. 'Modular' postprocessors introduced. 
+LILAC and Guderley functionality maintained. Most post-processor functions removed temporarily.
+
+v0.4.1 
+- initial development completed. Basic LILAC and Guderley functionality

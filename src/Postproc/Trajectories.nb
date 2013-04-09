@@ -1,0 +1,148 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Mathematica 8.0' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       157,          7]
+NotebookDataLength[      4465,        139]
+NotebookOptionsPosition[      4132,        123]
+NotebookOutlinePosition[      4490,        139]
+CellTagsIndexPosition[      4447,        136]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"SetDirectory", "[", 
+   RowBox[{"NotebookDirectory", "[", "]"}], "]"}], 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"Trajectories", "=", 
+   RowBox[{"Import", "[", 
+    RowBox[{"\"\<Trajectories.csv\>\"", ",", "\"\<CSV\>\""}], "]"}]}], 
+  ";"}]}], "Input",
+ CellChangeTimes->{{3.5366942136251917`*^9, 3.536694256570635*^9}, {
+  3.5367025526918707`*^9, 3.536702559338805*^9}, {3.536704890246832*^9, 
+  3.5367048905361443`*^9}, {3.536704944084174*^9, 3.536704946139132*^9}, {
+  3.536705218109591*^9, 3.5367052202168217`*^9}}],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"rs", "=", 
+   RowBox[{"{", "}"}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{"For", "[", 
+  RowBox[{
+   RowBox[{"i", "=", "0"}], ",", 
+   RowBox[{"i", "<", 
+    RowBox[{"Length", "[", "Trajectories", "]"}]}], ",", 
+   RowBox[{
+    RowBox[{"i", "++"}], ";", 
+    RowBox[{"rs", "=", 
+     RowBox[{"Append", "[", 
+      RowBox[{"rs", ",", 
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{
+          RowBox[{"Trajectories", "[", 
+           RowBox[{"[", "i", "]"}], "]"}], "[", 
+          RowBox[{"[", "1", "]"}], "]"}], ",", 
+         RowBox[{
+          RowBox[{"Trajectories", "[", 
+           RowBox[{"[", "i", "]"}], "]"}], "[", 
+          RowBox[{"[", "2", "]"}], "]"}]}], "}"}]}], "]"}]}]}]}], 
+  "]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"us", "=", 
+   RowBox[{"{", "}"}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{"For", "[", 
+  RowBox[{
+   RowBox[{"i", "=", "0"}], ",", 
+   RowBox[{"i", "<", 
+    RowBox[{"Length", "[", "Trajectories", "]"}]}], ",", 
+   RowBox[{
+    RowBox[{"i", "++"}], ";", 
+    RowBox[{"us", "=", 
+     RowBox[{"Append", "[", 
+      RowBox[{"us", ",", 
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{
+          RowBox[{"Trajectories", "[", 
+           RowBox[{"[", "i", "]"}], "]"}], "[", 
+          RowBox[{"[", "1", "]"}], "]"}], ",", 
+         RowBox[{
+          RowBox[{"Trajectories", "[", 
+           RowBox[{"[", "i", "]"}], "]"}], "[", 
+          RowBox[{"[", "3", "]"}], "]"}]}], "}"}]}], "]"}]}]}]}], 
+  "]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"rFF", "=", 
+   RowBox[{"{", "}"}]}], ";", 
+  RowBox[{"(*", "\[IndentingNewLine]", 
+   RowBox[{"For", "[", 
+    RowBox[{
+     RowBox[{"i", "=", "0"}], ",", 
+     RowBox[{"i", "<", 
+      RowBox[{"Length", "[", "Trajectories", "]"}]}], ",", 
+     RowBox[{
+      RowBox[{"i", "++"}], ";", 
+      RowBox[{"rFF", "=", 
+       RowBox[{"Append", "[", 
+        RowBox[{"rFF", ",", 
+         RowBox[{"{", 
+          RowBox[{
+           RowBox[{
+            RowBox[{"Trajectories", "[", 
+             RowBox[{"[", "i", "]"}], "]"}], "[", 
+            RowBox[{"[", "1", "]"}], "]"}], ",", 
+           RowBox[{
+            RowBox[{"Trajectories", "[", 
+             RowBox[{"[", "i", "]"}], "]"}], "[", 
+            RowBox[{"[", "4", "]"}], "]"}]}], "}"}]}], "]"}]}]}]}], "]"}], 
+   "*)"}]}]}], "Input",
+ CellChangeTimes->{{3.536694268122966*^9, 3.536694307023583*^9}, {
+  3.536694345940008*^9, 3.536694397613832*^9}, {3.5367025791821747`*^9, 
+  3.53670262355661*^9}, {3.5367049521258163`*^9, 3.5367049555177402`*^9}, {
+  3.536705201560017*^9, 3.536705263223716*^9}}],
+
+Cell[BoxData[{
+ RowBox[{"ListLinePlot", "[", 
+  RowBox[{"{", "rs", "}"}], "]"}], "\[IndentingNewLine]", 
+ RowBox[{"ListLinePlot", "[", 
+  RowBox[{"{", "us", "}"}], "]"}]}], "Input",
+ CellChangeTimes->{{3.536702625669346*^9, 3.536702652126796*^9}, {
+  3.536702721685631*^9, 3.536702727594719*^9}, {3.536704234525588*^9, 
+  3.536704245554205*^9}, {3.536704959666772*^9, 3.536704983009569*^9}}]
+},
+WindowSize->{740, 867},
+WindowMargins->{{Automatic, 106}, {Automatic, 50}},
+FrontEndVersion->"8.0 for Mac OS X x86 (32-bit, 64-bit Kernel) (February 23, \
+2011)",
+StyleDefinitions->"Default.nb"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[557, 20, 569, 13, 43, "Input"],
+Cell[1129, 35, 2605, 77, 148, "Input"],
+Cell[3737, 114, 391, 7, 43, "Input"]
+}
+]
+*)
+
+(* End of internal cache information *)

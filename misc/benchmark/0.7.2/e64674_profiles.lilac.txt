@@ -1,0 +1,42 @@
+----------------------------------------
+pyImplosion
+Author: Alex Zylstra
+Date: Sep 05, 2012
+v0.7.2
+----------------------------------------
+Auto implosion generation...
+14.9s elapsed
+----------------------------------------
+Running Burn...
+DD yield = 1.07e+11
+DD Ti = 20.20
+DD BT = 7.70e-10
+D3He yield = 3.35e+11
+D3He Ti = 27.83
+D3He BT = 7.30e-10
+3He3He yield = 6.13e+07
+3He3He Ti = 44.90
+3He3He BT = 7.30e-10
+41.1s elapsed
+Running EnergyEntropy...
+8.1s elapsed
+Running MolvigBurn...
+Molvig DD yield = 1.35e+10
+Molvig DD Ecm = 35.87
+Molvig DD Ti = 19.47
+Molvig DD BT = 7.80e-10
+Molvig D3He yield = 4.23e+10
+Molvig D3He Ecm = 85.50
+Molvig D3He Ti = 27.71
+Molvig D3He BT = 7.70e-10
+Molvig 3He3He yield = 4.84e+06
+Molvig 3He3He Ecm = 192.37
+Molvig 3He3He Ti = 42.34
+Molvig 3He3He BT = 7.10e-10
+102.2s elapsed
+Running rhoR...
+11.8s elapsed
+Running Snapshot...
+0.4s elapsed
+Running Trajectories...
+0.6s elapsed
