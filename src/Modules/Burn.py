@@ -1,10 +1,11 @@
 # Calculate yields, Ti
-# A. Zylstra 2012/08/17
+# A. Zylstra 2012/09/22
 
 from Implosion import *
 from Resources.IO import *
-from Resources.Fusion import *
+from Resources import Fusion
 from numpy import arange
+from numpy import zeros
 import math
 import csv
 import os
@@ -13,22 +14,49 @@ import os
 dt = 10e-12 #10ps
 dr = 5e-4 #5um
 
+# cutoffs in Ti for calculations
+Ti_Min = 0.5
+Ti_Max = 50
+
+# reactions
+reactions = []
+# syntax: [ name , A1, Z1, A2, Z2, reactivity fn ]
+reactions.append( [ "DD" , 2, 1, 2, 1, Fusion.DD ] )
+reactions.append( [ "DT" , 2, 1, 3, 1, Fusion.DT ] )
+reactions.append( [ "TT" , 3, 1, 3, 1, Fusion.TT ] )
+reactions.append( [ "D3He" , 2, 1, 3, 2, Fusion.D3He ] )
+reactions.append( [ "3He3He" , 3, 2, 3, 2, Fusion.HeHe ] )
+
+# global implosion
+impl = 0
+
 # ------------------------------------
 # Fuel fraction helpers
 # ------------------------------------
-def fD(impl, r, t):
+def f(r, t, A, Z):
+    """Find fraction for fuel ion with A and Z."""
+    if Z == 1:
+        if A == 2:
+            return fD(r,t)
+        if A == 3:
+            return fT(r,t)
+    if Z == 2:
+        if A == 3:
+            return f3He(r,t)
+    return 0
+def fD(r, t):
     """Calculate D fraction in implosion impl."""
     for i in range( len(impl.IonF(r,t)) ):
         if impl.IonA(r,t)[i] == 2 and impl.IonZ(r,t)[i] == 1:
             return impl.IonF(r,t)[i]
     return 0
-def f3He(impl, r, t):
+def f3He(r, t):
     """Calculate 3He fraction in implosion impl."""
     for i in range( len(impl.IonF(r,t)) ):
         if impl.IonA(r,t)[i] == 3 and impl.IonZ(r,t)[i] == 2:
             return impl.IonF(r,t)[i]
     return 0
-def fT(impl, r, t):
+def fT(r, t):
     """Calculate 3Te fraction in implosion impl."""
     for i in range( len(impl.IonF(r,t)) ):
         if impl.IonA(r,t)[i] == 3 and impl.IonZ(r,t)[i] == 1:
@@ -38,200 +66,90 @@ def fT(impl, r, t):
 # ------------------------------------
 # Burn rate calculators
 # ------------------------------------
-def DDrate(impl, t):
-    """Calculate the DD burn rate at time t (s)."""
-    f1 = 0 # D fraction (atomic)
+def rate(rxn, t):
+    """Calculate the rate for a specified reaction rxn at time t (s)."""
+    # fuel info
+    A1 = rxn[1]
+    Z1 = rxn[2]
+    A2 = rxn[3]
+    Z2 = rxn[4]
+    dblcount = 1
+    if (A1 == A2) and (Z1 == Z2):
+        dblcount = 2 #account for factor of 2 if reactants are identical
+    #fuel fractions
+    f1 = 0
+    f2 = 0
+    # return values
     ret = 0
     ret2 = 0 #Ti 'rate'
     
     for r in arange( impl.rmin(t) , impl.rfuel(t) , dr ):
         r1 = r + dr/2
-        f1 = fD(impl,r1,t)
-        temp = DD(impl.Ti(r1,t))*pow(impl.ni(r1,t),2)*(f1*f1/2)*4*math.pi*pow(r1,2)*dr
-        ret += temp
-        ret2 += temp*impl.Ti(r1,t)
-    return [ret , ret2]
-def D3Herate(impl, t):
-    """Calculate the D3He burn rate at time t (s)."""
-    f1 = 0 # D fraction (atomic)
-    f2 = 0 # 3He fraction (atomic)
-    ret = 0
-    ret2 = 0 #Ti 'rate'
-
-    for r in arange( impl.rmin(t) , impl.rfuel(t) , dr ):
-        r1 = r + dr/2
-        f1 = fD(impl,r1,t)
-        f2 = f3He(impl,r1,t)
-        temp = D3He(impl.Ti(r1,t))*pow(impl.ni(r1,t),2)*(f1*f2)*4*math.pi*pow(r1,2)*dr
-        ret += temp
-        ret2 += temp*impl.Ti(r1,t)
-    return [ret , ret2]
-
-def HeHerate(impl, t):
-    """Calculate the 3He3He burn rate at time t (s)."""
-    f1 = 0 # 3he fraction (atomic)
-    ret = 0
-    ret2 = 0 #Ti 'rate'
-
-    for r in arange( impl.rmin(t) , impl.rfuel(t) , dr ):
-        r1 = r + dr/2
-        f1 = f3He(impl,r1,t)
-        temp = HeHe(impl.Ti(r1,t))*pow(impl.ni(r1,t),2)*(f1*f1/2)*4*math.pi*pow(r1,2)*dr
-        ret += temp
-        ret2 += temp*impl.Ti(r1,t)
-    return [ret , ret2]
-
-def DTrate(impl, t):
-    """Calculate the DT burn rate at time t (s)."""
-    f1 = 0 # D fraction (atomic)
-    f2 = 0 # T fraction (atomic)
-    ret = 0
-    ret2 = 0 #Ti 'rate'
-
-    for r in arange( impl.rmin(t) , impl.rfuel(t) , dr ):
-        r1 = r + dr/2
-        f1 = fD(impl,r1,t)
-        f2 = fT(impl,r1,t)
-        temp = DT(impl.Ti(r1,t))*pow(impl.ni(r1,t),2)*(f1*f2)*4*math.pi*pow(r1,2)*dr
-        ret += temp
-        ret2 += temp*impl.Ti(r1,t)
-    return [ret , ret2]
-
-def TTrate(impl, t):
-    """Calculate the TT burn rate at time t (s)."""
-    f1 = 0 # T fraction (atomic)
-    ret = 0
-    ret2 = 0 #Ti 'rate'
-
-    for r in arange( impl.rmin(t) , impl.rfuel(t) , dr ):
-        r1 = r + dr/2
-        f1 = fT(impl,r1,t)
-        temp = TT(impl.Ti(r1,t))*pow(impl.ni(r1,t),2)*(f1*f1/2)*4*math.pi*pow(r1,2)*dr
-        ret += temp
-        ret2 += temp*impl.Ti(r1,t)
+        Ti = impl.Ti(r1,t)
+        if (Ti > Ti_Min) or (Ti < Ti_Max):
+            f1 = f(r1,t,A1,Z1)
+            f2 = f(r1,t,A2,Z2)
+            temp = rxn[5](Ti)*pow(impl.ni(r1,t),2)*(f1*f2/dblcount)*4*math.pi*pow(r1,2)*dr
+            ret += temp
+            ret2 += temp*Ti
     return [ret , ret2]
  
 # ------------------------------------
 # Main method
 # ------------------------------------
-def run(impl):
+def run(i):
     """Calculate total yield."""
     # input sanity check:
-    if not isinstance(impl,Implosion):
+    if not isinstance(i,Implosion):
         print("WARNING: invalid input.")
         return
+    global impl
+    impl = i # global implosion variable for this module
         
-    
     # Yields
-    YDD = 0
-    YD3He = 0
-    YHeHe = 0
-    YDT = 0
-    YTT = 0
+    Y = zeros( len(reactions) )
     # ion temps (burn-averaged)
-    TiDD = 0
-    TiD3He = 0
-    TiHeHe = 0
-    TiDT = 0
-    TiTT = 0
+    Ti = zeros( len(reactions) )
     # Bang (peak emission) times
-    BTDD = 0
-    BTD3He = 0
-    BTHeHe = 0
-    BTDT = 0
-    BTTT = 0
-    PeakRateDD = 0
-    PeakRateD3He = 0
-    PeakRateHeHe = 0
-    PeakRateDT = 0
-    PeakRateTT = 0
+    BT = zeros( len(reactions) )
+    PeakRate = zeros( len(reactions) )
     
     # output files
     rateFile = csv.writer(open(os.path.join(OutputDir,'BurnRate.csv'),'w'))
-    rateFile.writerow( ["t (s)", "DD (1/s)", "D3He (1/s)", "3He3He (1/s)", "DT (1/s)", "TT (1/s)"] )
     yieldFile = csv.writer(open(os.path.join(OutputDir,'Yield.csv'),'w'))
     TiFile = csv.writer(open(os.path.join(OutputDir,'Ti.csv'),'w'))
     BTFile = csv.writer(open(os.path.join(OutputDir,'BangTime.csv'),'w'))
+    # construct header for rate file:
+    rateFileHeader = ["t (s)"]
+    for i in reactions:
+        rateFileHeader.append( i[0] + " (1/s)" )
+    rateFile.writerow( rateFileHeader )
     
     #iterate over all time:
     for t in list(arange(impl.tmin(), impl.tmax(), dt)):
-        #DD
-        [dDD, dTiDD] = DDrate(impl,t)
-        YDD += dDD*dt
-        TiDD += dTiDD*dt
-        if dDD > PeakRateDD:
-            BTDD = t
-            PeakRateDD = dDD
-        #D3He
-        [dD3He, dTiD3He] = D3Herate(impl,t)
-        YD3He += dD3He*dt
-        TiD3He += dTiD3He*dt
-        if dD3He > PeakRateD3He:
-            BTD3He = t
-            PeakRateD3He = dD3He
-        #3He3He
-        [d3He3He, dTi3He3He] = HeHerate(impl,t)
-        YHeHe += d3He3He*dt
-        TiHeHe += dTi3He3He*dt
-        if d3He3He > PeakRateHeHe:
-            BTHeHe = t
-            PeakRateHeHe = d3He3He
-        #DD
-        [dDT, dTiDT] = DTrate(impl,t)
-        YDT += dDT*dt
-        TiDT += dTiDT*dt
-        if dDT > PeakRateDT:
-            BTDT = t
-            PeakRateDT = dDT
-        #DD
-        [dTT, dTiTT] = TTrate(impl,t)
-        YTT += dTT*dt
-        TiTT += dTiTT*dt
-        if dTT > PeakRateTT:
-            BTTT = t
-            PeakRateTT = dTT
+        rateFileRow = [t]
+        
+        #iterate over reactions
+        for i in range(len(reactions)):
+            [dY, dTi] = rate(reactions[i],t)
+            Y[i] += dY*dt
+            Ti[i] += dTi*dt
+            rateFileRow.append(dY)
+            if dY > PeakRate[i]:
+                BT[i] = t
+                PeakRate[i] = dY
+
         #output
-        rateFile.writerow( [t, dDD, dD3He, d3He3He, dDT, dTT] )
+        rateFile.writerow( rateFileRow )
     
     #If there is yield for a species, do output:
-    if YDD > 0:
-        TiDD = TiDD / YDD
-        print("DD yield = " + '{:.2e}'.format(YDD))
-        print("DD Ti = " + '{:.2f}'.format(TiDD))
-        print("DD BT = " + '{:.2e}'.format(BTDD))
-        yieldFile.writerow( ["DD",YDD] )
-        TiFile.writerow( ["DD",TiDD] )
-        BTFile.writerow( ["DD",BTDD] )
-    if YD3He > 0:
-        TiD3He = TiD3He / YD3He
-        print("D3He yield = " + '{:.2e}'.format(YD3He))
-        print("D3He Ti = " + '{:.2f}'.format(TiD3He))
-        print("D3He BT = " + '{:.2e}'.format(BTD3He))
-        yieldFile.writerow( ["D3He",YD3He] )
-        TiFile.writerow( ["D3He",TiD3He] )
-        BTFile.writerow( ["D3He",BTD3He] )
-    if YHeHe > 0:
-        TiHeHe = TiHeHe / YHeHe
-        print("3He3He yield = " + '{:.2e}'.format(YHeHe))
-        print("3He3He Ti = " + '{:.2f}'.format(TiHeHe))
-        print("3He3He BT = " + '{:.2e}'.format(BTHeHe))
-        yieldFile.writerow( ["3He3He",YHeHe] )
-        TiFile.writerow( ["3He3He",TiHeHe] )
-        BTFile.writerow( ["3He3He",BTHeHe] )
-    if YDT > 0:
-        TiDT = TiDT / YDT
-        print("DT yield = " + '{:.2e}'.format(YDT))
-        print("DT Ti = " + '{:.2f}'.format(TiDT))
-        print("DT BT = " + '{:.2e}'.format(BTDT))
-        yieldFile.writerow( ["DT",YDT] )
-        TiFile.writerow( ["DT",TiDT] )
-        BTFile.writerow( ["DT",BTDT] )
-    if YTT > 0:
-        TiTT = TiTT / YTT
-        print("TT yield = " + '{:.2e}'.format(YTT))
-        print("TT Ti = " + '{:.2f}'.format(TiTT))
-        print("TT BT = " + '{:.2e}'.format(BTTT))
-        yieldFile.writerow( ["TT",YTT] )
-        TiFile.writerow( ["TT",TiTT] )
-        BTFile.writerow( ["TT",BTTT] )
-        
+    #iterate over reactions
+    for i in range(len(reactions)):
+        if Y[i] > 0:
+            Ti[i] = Ti[i] / Y[i]
+            print(reactions[i][0]+" yield = " + '{:.2e}'.format(Y[i]))
+            print(reactions[i][0]+" Ti = " + '{:.2f}'.format(Ti[i]))
+            print(reactions[i][0]+" BT = " + '{:.2e}'.format(BT[i]))
+            yieldFile.writerow( [reactions[i][0],Y[i]] )
+            TiFile.writerow( [reactions[i][0],Ti[i]] )
+            BTFile.writerow( [reactions[i][0],BT[i]] )

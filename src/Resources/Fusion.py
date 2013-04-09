@@ -1,5 +1,5 @@
 # Fusion rate/xsection calculators
-# A. Zylstra 2012/09/05
+# A. Zylstra 2012/09/07
 
 #All reactivities use units cm^3/s
 import math
@@ -16,6 +16,7 @@ def T9(Ti):
 # -----------------------------------------------
 def HD(Ti):
     """HD reactivity, Ti in keV."""
+    # Angulo 1999
     if Ti <= 0.1:
         return 0
     T = T9(Ti)
@@ -25,19 +26,39 @@ def HD(Ti):
 
 def DD(Ti):
     """DD reactivity, Ti in keV."""
-    if Ti <= 0.1:
-        return 0
-    T = T9(Ti)
-    return (1/Na)*4.67e8*pow(T,-2/3)*math.exp(-4.259*pow(T,-1/3))*(1+1.079*T-0.1124*pow(T,2)+5.68e-3*pow(T,3))
+    # from Bosch and Hale
+    C1 = 5.43360e-12
+    C2 = 5.85778e-3
+    C3 = 7.68222e-3
+    C4 = 0
+    C5 = -2.964e-6
+    C6 = 0
+    C7 = 0
+    BG = 31.3970
+    mc2 = 937814
+    theta = Ti / (1-Ti*(C2+Ti*(C4+Ti*C6))/(1+Ti*(C3+Ti*(C5+Ti*C7))))
+    xi = math.pow( BG*BG/(4*theta) , 0.333 )
+    return C1*theta*math.sqrt(xi/(mc2*math.pow(Ti,3)))*math.exp(-3*xi)
 
 def D3He(Ti):
     """D3He reactivity, Ti in keV."""
-    if Ti <= 0.1:
-        return 0
-    return 4.98e-16*math.exp(-0.152*pow(math.fabs(math.log(Ti/802.6)),2.65))
+    # from Bosch and Hale
+    C1 = 5.51036e-10
+    C2 = 6.41918e-3
+    C3 = -2.02896e-3
+    C4 = -1.91080e-5
+    C5 = 1.35776e-4
+    C6 = 0
+    C7 = 0
+    BG = 68.7508
+    mc2 = 1124572
+    theta = Ti / (1-Ti*(C2+Ti*(C4+Ti*C6))/(1+Ti*(C3+Ti*(C5+Ti*C7))))
+    xi = math.pow( BG*BG/(4*theta) , 0.333 )
+    return C1*theta*math.sqrt(xi/(mc2*math.pow(Ti,3)))*math.exp(-3*xi)
 
 def HeHe(Ti):
     """3He3He reactivity, Ti in keV."""
+    # Angulo 1999
     if Ti <= 0.1:
         return 0
     T = T9(Ti)
@@ -55,11 +76,7 @@ def DT(Ti):
     C7 = 1.366e-5
     BG = 34.3827
     mc2 = 1124656
-    theta = Ti / (1-Ti*(C2+Ti*(C4+Ti*C6))/(1+Ti*(C3+Ti*(C5*Ti*C7))))
-    #print("----")
-    #print(theta)
-    #print(Ti)
-    #print(BG*BG/(4*theta))
+    theta = Ti / (1-Ti*(C2+Ti*(C4+Ti*C6))/(1+Ti*(C3+Ti*(C5+Ti*C7))))
     xi = math.pow( BG*BG/(4*theta) , 0.333 )
     return C1*theta*math.sqrt(xi/(mc2*math.pow(Ti,3)))*math.exp(-3*xi)
 
@@ -90,6 +107,7 @@ def S(En):
     return 0
 def sigmaDDn(En):
     """ DD cross section as a function of CM energy. [E] = keV, [sigma] = cm^2."""
+    # Bosch and Hale
     A1 = 5.3701e4
     A2 = 3.3027e2
     A3 = -1.2706e-1
@@ -100,6 +118,7 @@ def sigmaDDn(En):
     return (1.e-27) * SE / ( En*math.exp(BG/math.sqrt(En)) )
 def sigmaD3He(En):
     """ D3He cross section as a function of CM energy. [E] = keV, [sigma] = cm^2."""
+    # Bosch and Hale
     A1 = 5.7501e6
     A2 = 2.5226e3
     A3 = 4.5566e1
@@ -113,12 +132,12 @@ def sigmaHeHe(En):
     """ 3He3He cross section as a function of CM energy. [E] = keV, [sigma] = cm^2."""
     #return (1.e-24) * (5000 / En) * math.exp(-31.29*4.0*math.sqrt(3/En))
     En = 2*En # convert energy from CM to lab = x (A1+A2)/A2
-    #Junker et al, 1998
-    Sa = 5.3 #MeV b
-    Sb = -3.7 #b
-    Sc = 1.9 #b / MeV
+    # Angulo
+    Sa = 5.18 #MeV b
+    Sb = -2.22 #b
+    Sc = 0.804 #b / MeV
     S = Sa + Sb*En*1e-3 + Sc*math.pow(En*1e-3,2) # MeV b
-    return (1.e-24) * (S/(1e-3*En)) * math.exp(-31.29*4.0*math.sqrt(3/En))
+    return (1.e-24) * (2*S/(1e-3*En)) * math.exp(-31.29*4.0*math.sqrt(3/En))
 def sigmaDT(En):
     """ DT cross section as a function of CM energy. [E] = keV, [sigma] = cm^2."""
     # Bosch and Hale

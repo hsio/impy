@@ -37,7 +37,7 @@ def run(impl):
         P = impl.P(r,tsnap)
         Zbar = impl.Zbar(r,tsnap)
         Abar = impl.Abar(r,tsnap)
-        MFP = IonMFP(ni, Zbar , Abar)
-        tau = Tauii(ni, Ti, Zbar, Abar)
+        MFP = IonMFP(ni, Ti, Zbar , Abar)
+        tau = Taui(ni, Ti, Zbar, Abar)
         File.writerow( [r, u, cs, rho, ni, Ti, Te, P, Abar, Zbar, MFP, tau] )
     

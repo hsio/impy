@@ -1,9 +1,9 @@
-# Calculate yields, Ti, BT using Molvig reduced reactivit
-# A. Zylstra 2012/09/05
+# Calculate yields, Ti, BT using Molvig reduced reactivity
+# A. Zylstra 2012/09/22
 
 from Implosion import *
 from Resources.IO import *
-from Resources.Fusion import *
+from Resources import Fusion
 from Resources.Constants import *
 import numpy
 from scipy.integrate import quad
@@ -16,9 +16,25 @@ import os
 # integration step sizes
 dt = 10e-12 #10ps
 dr = 5e-4 #5um
+
+# cutoffs in Ti for calculations
+Ti_Min = 0.5
+Ti_Max = 50
 # for energy integrals of x sections
 Emin = 0.5
 Emax = 500
+
+# reactions
+reactions = []
+# syntax: [ name , A1, Z1, A2, Z2, cross section fn , reactivity fn ]
+reactions.append( [ "DD" , 2, 1, 2, 1, Fusion.sigmaDDn , Fusion.DD ] )
+reactions.append( [ "DT" , 2, 1, 3, 1, Fusion.sigmaDT , Fusion.DT ] )
+reactions.append( [ "TT" , 3, 1, 3, 1, Fusion.sigmaTT , Fusion.TT ] )
+reactions.append( [ "D3He" , 2, 1, 3, 2, Fusion.sigmaD3He , Fusion.D3He ] )
+reactions.append( [ "3He3He" , 3, 2, 3, 2, Fusion.sigmaHeHe , Fusion.HeHe ] )
+
+# global implosion
+impl = 0
 
 #some interpolators
 LeffInt = 0
@@ -37,7 +53,7 @@ def L(theta, r, R):
 def integrand1(theta,r,R):
     """integrand for Leff calculation"""
     return ( math.sin(theta) / math.pow(L(theta,r,R),2) )
-def LeffInit(impl):
+def LeffInit():
     """Precompute Leff vs R,r and set up interpolation."""
     rR = []
     LR = []
@@ -65,7 +81,7 @@ def CalcNk(Ti, Te, ne, Zbar, R, r):
         return 0.
     return Nk
 
-def NkInit(impl):
+def NkInit():
     """Precompute Nk vs r,t."""
     global NkArr
     ir = math.ceil(max( impl.rfuel(impl.tmin()) , impl.rfuel(impl.tmax()) ) / dr)
@@ -77,7 +93,7 @@ def NkInit(impl):
             t = impl.tmin() + j*dt
             temp = CalcNk( impl.Ti(r,t) , impl.Te(r,t) , impl.ne(r,t) , impl.Zbar(r,t) , impl.rfuel(t) , r)
             NkArr[i,j] = temp 
-def Nk(impl, r, t, Z1, Z2):
+def Nk(r, t, Z1, Z2):
     """Knudsen number for fusion with ion charges Z1,Z2."""
     ir = int( r / dr )
     it = int( ( t - impl.tmin() ) / dt )
@@ -94,421 +110,268 @@ def fK(En, Nk, Ti):
     p1 = 1 / math.sqrt( math.pi + Nk*math.pow(eps,1.5) )
     p2 = math.exp( -1.*(eps+0.8*Nk*math.pow(eps,2.5)+0.32*math.pow(Nk*eps*eps,2))/(1+0.8*Nk*math.pow(eps,1.5)) )
     return p1*p2
-    
-# DD reactivity:
-def integrandDD(En, NkDD, Ti):
-    """Integrand for Molvig-Knudsen DD reactivity."""
-    # see Brysk POP (1973)
-    return c*math.pow(Ti/(2*1e3*938),0.5)*math.pow(2/Ti,2)*sigmaDDn(En)*fK(En,NkDD,Ti)*En
-def integrandDDcm(En, NkDD, Ti):
-    """Integrand for Molvig-Knudsen DD reactivity CM energy."""
-    return En*integrandDD(En, NkDD, Ti)
-def svDDMolvig(impl, r,t):
-    """Calculate DD reactivity (Molvig-Knudsen). Returns [sigmav , Ecm, Ti]"""
-    R = impl.rfuel(t)
-    Ti = impl.Ti(r,t)
-    if r > R or Ti < 0.5:
-        return [0,0,0]
-    E1 = max(Ti/2, Emin)
-    E2 = min(10*Ti, Emax)
-    NkDD = Nk(impl, r, t, 1, 1)
-    Molvig = quad(integrandDD, E1, E2, args=(NkDD,Ti), epsrel = 1e-4, epsabs = 0)[0]
-    if Molvig <= 0:
-        return [ DD(Ti) , Eg(Ti,1,1,2,2), Ti]
-    Ecm = quad(integrandDDcm, E1, E2, args=(NkDD,Ti), epsrel = 1e-4, epsabs = 0)[0] / Molvig
-    return [Molvig , Ecm, Ti]
-
-# D3He reactivity:
-def integrandD3He(En, NkD3He, Ti):
-    """Integrand for Molvig-Knudsen D3He reactivity."""
-    # see Brysk POP (1973)
-    return c*math.pow(Ti/(2*1.25e3*938),0.5)*math.pow(2/Ti,2)*sigmaD3He(En)*fK(En,NkD3He,Ti)*En
-def integrandD3Hecm(En, NkD3He, Ti):
-    """Integrand for Molvig-Knudsen D3He reactivity CM energy."""
-    return En*integrandD3He(En, NkD3He, Ti)
-def svD3HeMolvig(impl, r,t):
-    """Calculate D3He reactivity (Molvig-Knudsen). Returns [sigmav , Ecm, Ti]"""
-    R = impl.rfuel(t)
-    Ti = impl.Ti(r,t)
-    if r > R or Ti < 0.5:
-        return [0,0,0]
-    E1 = max(Ti/2, Emin)
-    E2 = min(15*Ti, Emax)
-    NkD3He = Nk(impl, r, t, 1, 2)
-    Molvig = quad(integrandD3He, E1, E2, args=(NkD3He,Ti), epsrel = 1e-4, epsabs = 0)[0]
-    if Molvig <= 0:
-        return [ D3He(Ti) , Eg(Ti,1,2,2,3), Ti]
-    Ecm = quad(integrandD3Hecm, E1, E2, args=(NkD3He,Ti), epsrel = 1e-4, epsabs = 0)[0] / Molvig
-    return [Molvig , Ecm, Ti]
-
-# 3He3He reactivity:
-def integrandHeHe(En, NkHeHe, Ti):
-    """Integrand for Molvig-Knudsen 3He3He reactivity."""
-    return c*math.pow(Ti/(2*1.5e3*938),0.5)*math.pow(2/Ti,2)*sigmaHeHe(En)*fK(En,NkHeHe,Ti)*En
-def integrandHeHecm(En, NkHeHe, Ti):
-    """Integrand for Molvig-Knudsen 3He3He reactivity CM energy."""
-    return En*integrandHeHe(En, NkHeHe, Ti)
-def svHeHeMolvig(impl, r,t):
-    """Calculate 3He3He reactivity (Molvig-Knudsen). Returns [sigmav , Ecm, Ti]"""
-    R = impl.rfuel(t)
-    Ti = impl.Ti(r,t)
-    if r > R or Ti < 0.5:
-        return [0,0,0]
-    E1 = max(Ti/2, Emin)
-    E2 = min(20*Ti, Emax)
-    NkHeHe = Nk(impl, r, t, 2, 2)
-    Molvig = quad(integrandHeHe, E1, E2, args=(NkHeHe,Ti), epsrel = 1e-4, epsabs = 0)[0]
-    if Molvig <= 0:
-        return [ HeHe(Ti) , Eg(Ti,2,2,3,3), Ti]
-    Ecm = quad(integrandHeHecm, E1, E2, args=(NkHeHe,Ti), epsrel = 1e-4, epsabs = 0)[0] / Molvig
-    return [Molvig , Ecm, Ti]
-
-# DT reactivity:
-def integrandDT(En, NkDT, Ti):
-    """Integrand for Molvig-Knudsen DT reactivity."""
-    # see Brysk POP (1973)
-    return c*math.pow(Ti/(2*1.25e3*938),0.5)*math.pow(2/Ti,2)*sigmaDT(En)*fK(En,NkDT,Ti)*En
-def integrandDTcm(En, NkDT, Ti):
-    """Integrand for Molvig-Knudsen DT reactivity CM energy."""
-    return En*integrandDT(En, NkDT, Ti)
-def svDTMolvig(impl, r,t):
-    """Calculate DT reactivity (Molvig-Knudsen). Returns [sigmav , Ecm, Ti]"""
-    R = impl.rfuel(t)
-    Ti = impl.Ti(r,t)
-    if r > R or Ti < 0.5:
-        return [0,0,0]
-    E1 = max(Ti/2, Emin)
-    E2 = min(10*Ti, Emax)
-    NkDT = Nk(impl, r, t, 1, 1)
-    Molvig = quad(integrandDT, E1, E2, args=(NkDT,Ti), epsrel = 1e-4, epsabs = 0)[0]
-    if Molvig <= 0:
-        return [ DT(Ti) , Eg(Ti,1,1,2,3), Ti]
-    Ecm = quad(integrandDTcm, E1, E2, args=(NkDT,Ti), epsrel = 1e-4, epsabs = 0)[0] / Molvig
-    return [Molvig , Ecm, Ti]
-
-# TT reactivity:
-def integrandTT(En, NkTT, Ti):
-    """Integrand for Molvig-Knudsen DT reactivity."""
-    # see Brysk POP (1973)
-    return c*math.pow(Ti/(2*1.5e3*938),0.5)*math.pow(2/Ti,2)*sigmaTT(En)*fK(En,NkTT,Ti)*En
-def integrandTTcm(En, NkTT, Ti):
-    """Integrand for Molvig-Knudsen DT reactivity CM energy."""
-    return En*integrandTT(En, NkTT, Ti)
-def svTTMolvig(impl, r,t):
-    """Calculate DT reactivity (Molvig-Knudsen). Returns [sigmav , Ecm, Ti]"""
-    R = impl.rfuel(t)
-    Ti = impl.Ti(r,t)
-    if r > R or Ti < 0.5:
-        return [0,0,0]
-    E1 = max(Ti/2, Emin)
-    E2 = min(10*Ti, Emax)
-    NkTT = Nk(impl, r, t, 1, 1)
-    Molvig = quad(integrandTT, E1, E2, args=(NkTT,Ti), epsrel = 1e-4, epsabs = 0)[0]
-    if Molvig <= 0:
-        return [ TT(Ti) , Eg(Ti,1,1,3,3), Ti]
-    Ecm = quad(integrandTTcm, E1, E2, args=(NkTT,Ti), epsrel = 1e-4, epsabs = 0)[0] / Molvig
-    return [Molvig , Ecm, Ti]
 
 # ------------------------------------
 # Fuel fraction helpers
 # ------------------------------------
-def fD(impl, r, t):
+def f(r, t, A, Z):
+    """Find fraction for fuel ion with A and Z."""
+    if Z == 1:
+        if A == 2:
+            return fD(r,t)
+        if A == 3:
+            return fT(r,t)
+    if Z == 2:
+        if A == 3:
+            return f3He(r,t)
+    return 0
+def fD(r, t):
     """Calculate D fraction in implosion impl."""
     for i in range( len(impl.IonF(r,t)) ):
         if impl.IonA(r,t)[i] == 2 and impl.IonZ(r,t)[i] == 1:
             return impl.IonF(r,t)[i]
     return 0
-def f3He(impl, r, t):
+def f3He(r, t):
     """Calculate 3He fraction in implosion impl."""
     for i in range( len(impl.IonF(r,t)) ):
         if impl.IonA(r,t)[i] == 3 and impl.IonZ(r,t)[i] == 2:
             return impl.IonF(r,t)[i]
     return 0
-def fT(impl, r, t):
-    """Calculate 3He fraction in implosion impl."""
+def fT(r, t):
+    """Calculate 3Te fraction in implosion impl."""
     for i in range( len(impl.IonF(r,t)) ):
         if impl.IonA(r,t)[i] == 3 and impl.IonZ(r,t)[i] == 1:
             return impl.IonF(r,t)[i]
     return 0
     
 # ------------------------------------
+# Reactivity calculators
+# ------------------------------------
+def integrand(En, rxn, Nk, Ti):
+    """Integrand for Molvig-Knudsen reactivity."""
+    # see Brysk POP (1973)
+    A = (rxn[1] + rxn[3] )/2
+    return c*math.pow(Ti/(A*1e3*938),0.5)*math.pow(2/Ti,2)*rxn[5](En)*fK(En,Nk,Ti)*En
+def integrandcm(En, rxn, Nk, Ti):
+    """Integrand for Molvig-Knudsen reactivity CM energy."""
+    return En*integrand(En, rxn, Nk, Ti)
+def svMolvig(rxn, r,t):
+    """Calculate reactivity (Molvig-Knudsen) for given reaction. Returns [sigmav , Ecm, Ti]"""
+    R = impl.rfuel(t)
+    Ti = impl.Ti(r,t)
+    if (r > R) or (Ti < Ti_Min) or (Ti > Ti_Max):
+        return [0,0,0,0]
+    E1 = max(Ti/2, Emin)
+    E2 = min(20*Ti, Emax)
+    Nkx = Nk(r, t, rxn[2], rxn[4])
+    Molvig = quad(integrand, E1, E2, args=(rxn,Nkx,Ti), epsrel = 1e-4, epsabs = 0)[0]
+    if Molvig <= 0:
+        return [ rxn[6](Ti) , Fusion.Eg(Ti,rxn[2],rxn[4],rxn[1],rxn[3]), Ti]
+    Ecm = quad(integrandcm, E1, E2, args=(rxn,Nkx,Ti), epsrel = 1e-4, epsabs = 0)[0] / Molvig
+    return [Molvig , Ecm, Ti, Nkx]
+    
+# ------------------------------------
 # Burn rate calculators
 # ------------------------------------
-def DDrate(impl, t):
+def rate(rxn, t):
     """Calculate the DD burn rate at time t (s)."""
-    f1 = 0 # D fraction (atomic)
-    ret = 0 # burn rate
-    ret2 = 0 # Ecm 'rate'
-    ret3 = 0 # Ti 'rate'
+    # fuel info
+    A1 = rxn[1]
+    Z1 = rxn[2]
+    A2 = rxn[3]
+    Z2 = rxn[4]
+    dblcount = 1
+    if (A1 == A2) and (Z1 == Z2):
+        dblcount = 2 #account for factor of 2 if reactants are identical
+    #fuel fractions
+    f1 = 0
+    f2 = 0
+    # return values
+    Yield = 0
+    Ecm = 0 # Ecm 'rate'
+    Ti = 0 # Ti 'rate'
+    Nk = 0 # Nk 'rate'
     
     for r in numpy.arange( impl.rmin(t) , impl.rfuel(t) , dr ):
         r1 = r + dr/2
-        f1 = fD(impl,r1,t)
-        temp = svDDMolvig(impl,r1,t)
-        temp2 = pow(impl.ni(r1,t),2)*(f1*f1/2)*4*math.pi*pow(r1,2)*dr
-        ret += temp[0]*temp2
-        ret2 += temp[1]*temp[0]*temp2
-        ret3 += temp[2]*temp[0]*temp2
-    return [ret , ret2, ret3]
-def D3Herate(impl, t):
-    """Calculate the D3He burn rate at time t (s)."""
-    f1 = 0 # D fraction (atomic)
-    f2 = 0 # 3He fraction (atomic)
-    ret = 0 # burn rate
-    ret2 = 0 # Ecm 'rate'
-    ret3 = 0 # Ti 'rate'
+        f1 = f(r1,t,A1,Z1)
+        f2 = f(r1,t,A2,Z2)
+        temp = svMolvig(rxn,r,t)
+        temp2 = pow(impl.ni(r1,t),2)*(f1*f2/dblcount)*4*math.pi*pow(r1,2)*dr
+        Yield += temp[0]*temp2
+        Ecm += temp[1]*temp[0]*temp2
+        Ti += temp[2]*temp[0]*temp2
+        Nk += temp[3]*temp[0]*temp2
+    return [Yield , Ecm, Ti, Nk]
 
-    for r in numpy.arange( impl.rmin(t) , impl.rfuel(t) , dr ):
-        r1 = r + dr/2
-        f1 = fD(impl,r1,t)
-        f2 = f3He(impl,r1,t)
-        temp = svD3HeMolvig(impl,r1,t)
-        temp2 = pow(impl.ni(r1,t),2)*(f1*f2)*4*math.pi*pow(r1,2)*dr
-        ret += temp[0]*temp2
-        ret2 += temp[1]*temp[0]*temp2
-        ret3 += temp[2]*temp[0]*temp2
-    return [ret , ret2, ret3]
-def HeHerate(impl, t):
-    """Calculate the 3He3He burn rate at time t (s)."""
-    f1 = 0 # 3he fraction (atomic)
-    ret = 0 # burn rate
-    ret2 = 0 # Ecm 'rate'
-    ret3 = 0 # Ti 'rate'
-
-    for r in numpy.arange( impl.rmin(t) , impl.rfuel(t) , dr ):
-        r1 = r + dr/2
-        f1 = f3He(impl,r1,t)
-        temp = svHeHeMolvig(impl,r1,t)
-        temp2 = pow(impl.ni(r1,t),2)*(f1*f1/2)*4*math.pi*pow(r1,2)*dr
-        ret += temp[0]*temp2
-        ret2 += temp[1]*temp[0]*temp2
-        ret3 += temp[2]*temp[0]*temp2
-    return [ret , ret2, ret3]
-def DTrate(impl, t):
-    """Calculate the 3He3He burn rate at time t (s)."""
-    f1 = 0 # D fraction (atomic)
-    f2 = 0 # T fraction (atomic)
-    ret = 0 # burn rate
-    ret2 = 0 # Ecm 'rate'
-    ret3 = 0 # Ti 'rate'
-
-    for r in numpy.arange( impl.rmin(t) , impl.rfuel(t) , dr ):
-        r1 = r + dr/2
-        f1 = fD(impl,r1,t)
-        f2 = fT(impl,r1,t)
-        temp = svDTMolvig(impl,r1,t)
-        temp2 = pow(impl.ni(r1,t),2)*(f1*f2)*4*math.pi*pow(r1,2)*dr
-        ret += temp[0]*temp2
-        ret2 += temp[1]*temp[0]*temp2
-        ret3 += temp[2]*temp[0]*temp2
-    return [ret , ret2, ret3]
-def TTrate(impl, t):
-    """Calculate the 3He3He burn rate at time t (s)."""
-    f1 = 0 # T fraction (atomic)
-    ret = 0 # burn rate
-    ret2 = 0 # Ecm 'rate'
-    ret3 = 0 # Ti 'rate'
-
-    for r in numpy.arange( impl.rmin(t) , impl.rfuel(t) , dr ):
-        r1 = r + dr/2
-        f1 = fT(impl,r1,t)
-        temp = svTTMolvig(impl,r1,t)
-        temp2 = pow(impl.ni(r1,t),2)*(f1*f1/2)*4*math.pi*pow(r1,2)*dr
-        ret += temp[0]*temp2
-        ret2 += temp[1]*temp[0]*temp2
-        ret3 += temp[2]*temp[0]*temp2
-    return [ret , ret2, ret3]
-
-# test Molvig reduced reactivity
+# ------------------------------------
+# Test functions
+# ------------------------------------
 def checkCalc(verb=False):
     if verb:
-        print("9keV plasma, 6g/cc D, 10um scale length")
-        Ti = 9
-        ni = 6 / (2*mp) # 6 g/cc D plasma
-        L = 10e-4 # 10um scale length
-        Nk = CalcNk(Ti, Ti, ni, 1, L, 0)
-        print(Nk)
-        Molvig = quad(integrandDD, Ti/2, 10*Ti, args=(Nk,Ti), epsrel = 1e-4, epsabs = 0)[0]
-        Thermal = DD( Ti )
-        print(Molvig)
-        print(Thermal)
-        ratio = Molvig / Thermal
-        print(ratio)
+        print("no verbosity implemented yet")
+    
     # check that Molvig reactivities reduce to Maxwellians
+    AccErr = 0.2 # accept 10% errors
     Ti = 10
-    Nk = 0
-    MolvigDD = quad(integrandDD, Ti/2, 10*Ti, args=(Nk,Ti), epsrel = 1e-4, epsabs = 0)[0]
-    MolvigD3He = quad(integrandD3He, Ti/2, 15*Ti, args=(Nk,Ti), epsrel = 1e-4, epsabs = 0)[0]
-    MolvigHeHe = quad(integrandHeHe, Ti/2, 20*Ti, args=(Nk,Ti), epsrel = 1e-4, epsabs = 0)[0]
-    MolvigDT = quad(integrandDT, Ti/2, 10*Ti, args=(Nk,Ti), epsrel = 1e-4, epsabs = 0)[0]
-    MolvigTT = quad(integrandTT, Ti/2, 10*Ti, args=(Nk,Ti), epsrel = 1e-4, epsabs = 0)[0]
-    AccErr = 0.1 # accept 10% errors
-    if (MolvigDD - DD(Ti))/MolvigDD > AccErr:
-        return False
-    if (MolvigD3He - D3He(Ti))/MolvigD3He > AccErr:
-        return False
-    if (MolvigHeHe - HeHe(Ti))/MolvigHeHe > AccErr:
-        return False
-    if (MolvigDT - DT(Ti))/MolvigDT > AccErr:
-        return False
-    if (MolvigTT - TT(Ti))/MolvigTT > AccErr:
-        return False
+    Nkx = 0
+    for rxn in reactions:
+        Molvig = quad(integrand, Ti/2, Ti*20, args=(rxn,Nkx,Ti), epsrel = 1e-4, epsabs = 0)[0]
+        Thermal = rxn[6](Ti)
+        if math.fabs(Molvig-Thermal)/Thermal >= AccErr:
+            print("Failed!")
+            print(rxn)
+            print(Molvig)
+            print(Thermal)
+            print(rxn[5](20))
+            return False
     return True
+    
+def calc_Molvig_Thermal(Nk):
+    """ Calculate the ratio of Molvig to Thermal reactivity for given Nk."""
+    file = csv.writer(open(os.path.join(OutputDir,'Molvig_Thermal.csv'),'w')) # Ratio vs Ti for fixed Nk
+    file2 = csv.writer(open(os.path.join(OutputDir,'Molvig_Thermal2.csv'),'w')) # Ratio vs Ti for Nk normalized to D3He @ 15keV
+    file3 = csv.writer(open(os.path.join(OutputDir,'Molvig_Thermal3.csv'),'w'))
+    Tmin = 1
+    Tmax = 30
+    dT = 0.25
+    # for second file output, normalized to conditions:
+    Z1_0 = 1
+    Z2_0 = 2 # D3He
+    A1_0 = 2
+    A2_0 = 3
+    Ti_0 = 15
+    # for third file output, normalized to conditions:
+    rhoL = 1e-3 # 1 mg/cm2
+    ni = 2e22 # 1/cc
+    # construct header for rate file:
+    file.writerow( ["Nk" , Nk] )
+    file2.writerow( ["Nk" , Nk, "T0", Ti_0])
+    file3.writerow( ["rhoL" , rhoL, "ni", ni] )
+    rateFileHeader = ["Ti (keV)"]
+    for i in reactions:
+        rateFileHeader.append( i[0] )
+    file.writerow( rateFileHeader )
+    file2.writerow( rateFileHeader )
+    file3.writerow( rateFileHeader )
+    
+    for Ti in numpy.arange(Tmin,Tmax,dT):
+        line = [Ti] # line for output
+        line2 = [Ti] # line for output
+        line3 = [Ti] # line for output
+        for rxn in reactions:
+            # first file:
+            Molvig = quad(integrand, Ti/2, Ti*20, args=(rxn,Nk,Ti), epsrel = 1e-4, epsabs = 0)[0]
+            Thermal = rxn[6](Ti)
+            line.append( Molvig/Thermal )
+            
+            # second file:
+            Z1 = rxn[2]
+            Z2 = rxn[4]
+            A1 = rxn[1]
+            A2 = rxn[3]
+            NkNorm = Nk*math.pow(Ti/Ti_0,2)*math.pow(Z1_0*Z2_0/(Z1*Z2),2)*(A1+A2)/(A1_0+A2_0) # normalized Knudsen number
+            Molvig = quad(integrand, Ti/2, Ti*20, args=(rxn,NkNorm,Ti), epsrel = 1e-4, epsabs = 0)[0]
+            line2.append( Molvig/Thermal )
+            
+            # third file
+            Zbar = (Z1+Z2)/2
+            Abar = (A1+A2)/2
+            ne = Zbar*ni
+            Te = Ti
+            lD = 743*math.sqrt(1000*Te / ne)
+            b90 = 2*math.pow(Zbar*e,2)/(3*kB*1000*11600*Ti)
+            rho = (ni/Na)*Abar
+            L = rhoL / rho
+            LL = max( math.log(lD/b90) , 1 )
+            Nk = (math.sqrt(0.33)/math.pi)*pow(1000*11600*kB*Ti,2) / ((ne/Zbar)*LL*L*math.pow(e,4))
+            Molvig = quad(integrand, Ti/2, Ti*20, args=(rxn,Nk,Ti), epsrel = 1e-4, epsabs = 0)[0]
+            line3.append( Molvig/Thermal )
+            
+            
+        file.writerow( line )
+        file2.writerow( line2 )
+        file3.writerow( line3 )
+            
+    
     
 # ------------------------------------
 # Main method
 # ------------------------------------
-def run(impl):
+def run(i):
     """Calculate total yield."""
     # input sanity check:
-    if not isinstance(impl,Implosion):
+    if not isinstance(i,Implosion):
         print("WARNING: invalid input.")
         return
+    global impl
+    impl = i # global implosion variable for this module
         
     # Do precomputation
-    LeffInit(impl)
-    NkInit(impl)
+    LeffInit()
+    NkInit()
     # Quick self-check
     if not checkCalc():
         print("ERROR: Molvig reactivities do not properly reduce to Maxwellian. Aborting calculation.")
         return
     
     # Yields
-    YDD = 0
-    YD3He = 0
-    YHeHe = 0
-    YDT = 0
-    YTT = 0
+    Y = numpy.zeros( len(reactions) )
     # ion temps (burn-averaged)
-    EcmDD = 0
-    TiDD = 0
-    EcmD3He = 0
-    TiD3He = 0
-    EcmHeHe = 0
-    TiHeHe = 0
-    EcmDT = 0
-    TiDT = 0
-    EcmTT = 0
-    TiTT = 0
+    Ti = numpy.zeros( len(reactions) )
+    Ecm = numpy.zeros( len(reactions) )
+    Nk = numpy.zeros( len(reactions) )
     # Bang (peak emission) times
-    BTDD = 0
-    BTD3He = 0
-    BTHeHe = 0
-    BTDT = 0
-    BTTT = 0
-    PeakRateDD = 0
-    PeakRateD3He = 0
-    PeakRateHeHe = 0
-    PeakRateDT = 0
-    PeakRateTT = 0
+    BT = numpy.zeros( len(reactions) )
+    PeakRate = numpy.zeros( len(reactions) )
     
     # output files
     rateFile = csv.writer(open(os.path.join(OutputDir,'BurnRate_Molvig.csv'),'w'))
-    rateFile.writerow( ["t (s)", "DD (1/s)", "D3He (1/s)", "3He3He (1/s)", "DT (1/s)", "TT (1/s)"] )
     yieldFile = csv.writer(open(os.path.join(OutputDir,'Yield_Molvig.csv'),'w'))
     EcmFile = csv.writer(open(os.path.join(OutputDir,'Ecm_Molvig.csv'),'w'))
     TiFile = csv.writer(open(os.path.join(OutputDir,'Ti_Molvig.csv'),'w'))
+    NkFile = csv.writer(open(os.path.join(OutputDir,'Nk_Molvig.csv'),'w'))
     BTFile = csv.writer(open(os.path.join(OutputDir,'BangTime_Molvig.csv'),'w'))
+    # construct header for rate file:
+    rateFileHeader = ["t (s)"]
+    for i in reactions:
+        rateFileHeader.append( i[0] + " (1/s)" )
+    rateFile.writerow( rateFileHeader )
     
     #iterate over all time:
     for t in list(numpy.arange(impl.tmin(), impl.tmax(), dt)):
-        #DD
-        [dDD,dEcmDD, dTiDD] = DDrate(impl,t)
-        YDD += dDD*dt
-        TiDD += dTiDD*dt
-        EcmDD += dEcmDD*dt
-        if dDD > PeakRateDD:
-            BTDD = t
-            PeakRateDD = dDD
-        #D3He
-        [dD3He,dEcmD3He, dTiD3He] = D3Herate(impl,t)
-        YD3He += dD3He*dt
-        TiD3He += dTiD3He*dt
-        EcmD3He += dEcmD3He*dt
-        if dD3He > PeakRateD3He:
-            BTD3He = t
-            PeakRateD3He = dD3He
-        #3He3He
-        [d3He3He, dEcm3He3He, dTiHeHe] = HeHerate(impl,t)
-        YHeHe += d3He3He*dt
-        TiHeHe += dTiHeHe*dt
-        EcmHeHe += dEcm3He3He*dt
-        if d3He3He > PeakRateHeHe:
-            BTHeHe = t
-            PeakRateHeHe = d3He3He
-        #DT
-        [dDT,dEcmDT, dTiDT] = DTrate(impl,t)
-        YDT += dDT*dt
-        TiDT += dTiDT*dt
-        EcmDT += dEcmDT*dt
-        if dDT > PeakRateDT:
-            BTDT = t
-            PeakRateDT = dDT
-        #TT
-        [dTT,dEcmTT, dTiTT] = TTrate(impl,t)
-        YTT += dTT*dt
-        TiTT += dTiTT*dt
-        EcmTT += dEcmTT*dt
-        if dTT > PeakRateTT:
-            BTTT = t
-            PeakRateTT = dTT
+        rateFileRow = [t]
+        
+        #iterate over reactions
+        for i in range(len(reactions)):
+            [dY, dEcm, dTi, dNk] = rate(reactions[i],t)
+            Y[i] += dY*dt
+            Ecm[i] += dEcm*dt
+            Ti[i] += dTi*dt
+            Nk[i] += dNk*dt
+            rateFileRow.append(dY)
+            if dY > PeakRate[i]:
+                BT[i] = t
+                PeakRate[i] = dY
+
         #output
-        rateFile.writerow( [t, dDD, dD3He, d3He3He, dDT, dTT] )
+        rateFile.writerow( rateFileRow )
         
     #If there is yield for a species, do output:
-    if YDD > 0:
-        EcmDD = EcmDD / YDD
-        TiDD = TiDD / YDD
-        print("Molvig DD yield = " + '{:.2e}'.format(YDD))
-        print("Molvig DD Ecm = " + '{:.2f}'.format(EcmDD))
-        print("Molvig DD Ti = " + '{:.2f}'.format(TiDD))
-        print("Molvig DD BT = " + '{:.2e}'.format(BTDD))
-        yieldFile.writerow( ["DD",YDD] )
-        EcmFile.writerow( ["DD",EcmDD] )
-        TiFile.writerow( ["DD",TiDD] )
-        BTFile.writerow( ["DD",BTDD] )
-    if YD3He > 0:
-        EcmD3He = EcmD3He / YD3He
-        TiD3He = TiD3He / YD3He
-        print("Molvig D3He yield = " + '{:.2e}'.format(YD3He))
-        print("Molvig D3He Ecm = " + '{:.2f}'.format(EcmD3He))
-        print("Molvig D3He Ti = " + '{:.2f}'.format(TiD3He))
-        print("Molvig D3He BT = " + '{:.2e}'.format(BTD3He))
-        yieldFile.writerow( ["D3He",YD3He] )
-        EcmFile.writerow( ["D3He",EcmD3He] )
-        TiFile.writerow( ["D3He",TiD3He] )
-        BTFile.writerow( ["D3He",BTD3He] )
-    if YHeHe > 0:
-        EcmHeHe = EcmHeHe / YHeHe
-        TiHeHe = TiHeHe / YHeHe
-        print("Molvig 3He3He yield = " + '{:.2e}'.format(YHeHe))
-        print("Molvig 3He3He Ecm = " + '{:.2f}'.format(EcmHeHe))
-        print("Molvig 3He3He Ti = " + '{:.2f}'.format(TiHeHe))
-        print("Molvig 3He3He BT = " + '{:.2e}'.format(BTHeHe))
-        yieldFile.writerow( ["3He3He",YHeHe] )
-        EcmFile.writerow( ["3He3He",EcmHeHe] )
-        TiFile.writerow( ["3He3He",TiHeHe] )
-        BTFile.writerow( ["3He3He",BTHeHe] )
-    if YDT > 0:
-        EcmDT = EcmDT / YDT
-        TiDT = TiDT / YDT
-        print("Molvig DT yield = " + '{:.2e}'.format(YDT))
-        print("Molvig DT Ecm = " + '{:.2f}'.format(EcmDT))
-        print("Molvig DT Ti = " + '{:.2f}'.format(TiDT))
-        print("Molvig DT BT = " + '{:.2e}'.format(BTDT))
-        yieldFile.writerow( ["DT",YDT] )
-        EcmFile.writerow( ["DT",EcmDT] )
-        TiFile.writerow( ["DT",TiDT] )
-        BTFile.writerow( ["DT",BTDT] )
-    if YTT > 0:
-        EcmTT = EcmTT / YTT
-        TiTT = TiTT / YTT
-        print("Molvig TT yield = " + '{:.2e}'.format(YTT))
-        print("Molvig TT Ecm = " + '{:.2f}'.format(EcmTT))
-        print("Molvig TT Ti = " + '{:.2f}'.format(TiTT))
-        print("Molvig TT BT = " + '{:.2e}'.format(BTTT))
-        yieldFile.writerow( ["TT",YTT] )
-        EcmFile.writerow( ["TT",EcmTT] )
-        TiFile.writerow( ["TT",TiTT] )
-        BTFile.writerow( ["TT",BTTT] )
+    #iterate over reactions
+    for i in range(len(reactions)):
+        if Y[i] > 0:
+            Ti[i] = Ti[i] / Y[i]
+            Nk[i] = Nk[i] / Y[i]
+            Ecm[i] = Ecm[i] / Y[i]
+            print(reactions[i][0]+" yield = " + '{:.2e}'.format(Y[i]))
+            print(reactions[i][0]+" Ecm = " + '{:.2f}'.format(Ecm[i]))
+            print(reactions[i][0]+" Nk = " + '{:.2f}'.format(Nk[i]))
+            print(reactions[i][0]+" Ti = " + '{:.2f}'.format(Ti[i]))
+            print(reactions[i][0]+" BT = " + '{:.2e}'.format(BT[i]))
+            yieldFile.writerow( [reactions[i][0],Y[i]] )
+            EcmFile.writerow( [reactions[i][0],Ecm[i]] )
+            NkFile.writerow( [reactions[i][0],Nk[i]] )
+            TiFile.writerow( [reactions[i][0],Ti[i]] )
+            BTFile.writerow( [reactions[i][0],BT[i]] )
         
