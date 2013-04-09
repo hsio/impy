@@ -1,5 +1,5 @@
 # Calculate yields, Ti, BT using Molvig reduced reactivit
-# A. Zylstra 2012/08/29
+# A. Zylstra 2012/08/30
 
 from Implosion import *
 from Resources.IO import *
@@ -17,8 +17,8 @@ import os
 dt = 20e-12 #10ps
 dr = 10e-4 #5um
 # for energy integrals of x sections
-#Emin = 0.5
-#Emax = 500
+Emin = 0.5
+Emax = 500
 
 #some interpolators
 LeffInt = 0
@@ -46,13 +46,25 @@ def LeffInit(impl):
         LR.append( math.sqrt( 2. / quad(integrand1, 0, math.pi, args=(i,1))[0] ) )
     global LeffInt
     LeffInt = scipy.interpolate.InterpolatedUnivariateSpline(rR, LR)
-def Leff(R, r, t):
+def Leff(R, r):
     """Effective scale length in spherical geometry. R is shell radius."""
     if r >= R:
         return 0
     return R*LeffInt(r/R)
     
 # Knudsen number:
+def CalcNk(Ti, Te, ne, Zbar, R, r):
+    lD = 743*math.sqrt(1000*Te / ne)
+    b90 = 2*math.pow(Zbar*e,2)/(3*kB*1000*11600*Ti)
+    LL = max( math.log(lD/b90) , 1 )
+    L = Leff(R,r)
+    if L == 0:
+        return 1e9
+    Nk = (math.sqrt(0.33)/math.pi)*pow(1000*11600*kB*Ti,2) / ((ne/Zbar)*LL*L*math.pow(e,4))
+    if Nk < 0 or L < 0:
+        return 0.
+    return Nk
+
 def NkInit(impl):
     """Precompute Nk vs r,t."""
     global NkArr
@@ -63,22 +75,7 @@ def NkInit(impl):
         for j in range(int(it)):
             r = i*dr
             t = impl.tmin() + j*dt
-            lD = 743*math.sqrt(1000*impl.Te(r,t) / impl.ne(r,t))
-            b90 = 2*math.pow(impl.Zbar(r,t)*e,2)/(3*kB*1000*11600*impl.Ti(r,t))
-            LL = max( math.log(lD/b90) , 1 )
-            #LL = max( LogL(impl.ni(r,t) , impl.Ti(r,t) , impl.Zbar(r,t) , impl.Abar(r,t) ) , 1)
-            L = Leff(impl.rfuel(t),r,t)
-            if L > 0:
-                temp = (math.sqrt(0.33)/math.pi)*pow(1000*11600*kB*impl.Ti(r,t),2) / (impl.ni(r,t)*LL*L*math.pow(e,4))
-            else:
-                temp = 1e9
-            if temp < 0:
-                print("UH OH negative Nk!!!")
-                print(LL)
-                print(L)
-                print(impl.Ti(r,t))
-                print(impl.ni(r,t))
-                #input("foo")
+            temp = CalcNk( impl.Ti(r,t) , impl.Te(r,t) , impl.ne(r,t) , impl.Zbar(r,t) , impl.rfuel(t) , r)
             NkArr[i,j] = temp 
 def Nk(impl, r, t, Z1, Z2):
     """Knudsen number for fusion with ion charges Z1,Z2."""
@@ -87,91 +84,81 @@ def Nk(impl, r, t, Z1, Z2):
     return  ( NkArr[ir,it] / (pow(Z1*Z2,2)) )
     
 # Knudsen distribution function:
-def fK(impl, En,Nk,r,t):
+def fK(En, Nk, Ti):
     """Knudsen distribution function."""
     #normalized energy
-    eps = En / impl.Ti(r,t)
+    eps = En / Ti
     #evaluated as prefactor and exponential
+    #p1 = 1 / math.sqrt( math.pi + Nk*math.pow(eps,1.5) )
+    #p2 = math.exp( -1.0*(eps+0.4*Nk*math.pow(eps,2.5)) )
     p1 = 1 / math.sqrt( math.pi + Nk*math.pow(eps,1.5) )
-    p2 = math.exp( -1.0*(eps+0.4*Nk*math.pow(eps,2.5)) )
-    #p1 = 2 / math.sqrt( math.pi + Nk*math.pow(eps,1.5) )
-    #p2 = math.exp( -1.*(eps+0.8*Nk*math.pow(eps,2.5)+0.32*math.pow(Nk*eps*eps,2))/(1+0.8*Nk*math.pow(eps,1.5)) )
+    p2 = math.exp( -1.*(eps+0.8*Nk*math.pow(eps,2.5)+0.32*math.pow(Nk*eps*eps,2))/(1+0.8*Nk*math.pow(eps,1.5)) )
     return p1*p2
     
 # DD reactivity:
-def integrandDD(En, r, t, impl):
+def integrandDD(En, NkDD, Ti):
     """Integrand for Molvig-Knudsen DD reactivity."""
-    NkDD = Nk(impl, r, t, 1, 1)
     # see Brysk POP (1973)
-    Ti = impl.Ti(r,t)
-    return math.sqrt((2+2)/4)*c*math.pow(Ti/(2*1e3*938),0.5)*math.pow(2/Ti,2)*sigmaDDn(En)*fK(impl,En,NkDD,r,t)*En
-def integrandDDcm(En, r, t, impl):
+    return math.sqrt((2+2)/4)*c*math.pow(Ti/(2*1e3*938),0.5)*math.pow(2/Ti,2)*sigmaDDn(En)*fK(En,NkDD,Ti)*En
+def integrandDDcm(En, NkDD, Ti):
     """Integrand for Molvig-Knudsen DD reactivity CM energy."""
-    return En*integrandDD(En, r, t, impl)
+    return En*integrandDD(En, NkDD, Ti)
 def svDDMolvig(impl, r,t):
     """Calculate DD reactivity (Molvig-Knudsen). Returns [sigmav , Ecm]"""
     R = impl.rfuel(t)
     Ti = impl.Ti(r,t)
     if r > R or Ti < 0.5:
         return [0,0]
-    Emin = Ti/2
-    Emax = 10*Ti
-    Molvig = quad(integrandDD, Emin, Emax, args=(r,t,impl), epsrel = 1e-4, epsabs = 0)[0]
-    #Thermal = DD( impl.Ti(r,t) )
-    #if Thermal < Molvig or Molvig == 0:
-    #    print("foo")
-    #    return [Thermal , Eg(impl.Ti(r,t),1,1,2,2)]
-    Ecm = quad(integrandDDcm, Emin, Emax, args=(r,t,impl), epsrel = 1e-4, epsabs = 0)[0] / Molvig
+    E1 = max(Ti/2, Emin)
+    E2 = min(10*Ti, Emax)
+    NkDD = Nk(impl, r, t, 1, 1)
+    Molvig = quad(integrandDD, E1, E2, args=(NkDD,Ti), epsrel = 1e-4, epsabs = 0)[0]
+    if Molvig <= 0:
+        return [ DD(Ti) , Eg(Ti,1,1,2,2)]
+    Ecm = quad(integrandDDcm, E1, E2, args=(NkDD,Ti), epsrel = 1e-4, epsabs = 0)[0] / Molvig
     return [Molvig , Ecm]
 # D3He reactivity:
-def integrandD3He(En, r, t, impl):
+def integrandD3He(En, NkD3He, Ti):
     """Integrand for Molvig-Knudsen D3He reactivity."""
-    NkD3He = Nk(impl, r, t, 1, 2)
     # see Brysk POP (1973)
-    Ti = impl.Ti(r,t)
-    return c*math.pow(Ti/(2*1.25e3*938),0.5)*math.pow(2/Ti,2)*sigmaD3He(En)*fK(impl,En,NkD3He,r,t)*En
-def integrandD3Hecm(En, r, t, impl):
+    return c*math.pow(Ti/(2*1.25e3*938),0.5)*math.pow(2/Ti,2)*sigmaD3He(En)*fK(En,NkD3He,Ti)*En
+def integrandD3Hecm(En, NkD3He, Ti):
     """Integrand for Molvig-Knudsen D3He reactivity CM energy."""
-    return En*integrandD3He(En, r, t, impl)
+    return En*integrandD3He(En, NkD3He, Ti)
 def svD3HeMolvig(impl, r,t):
     """Calculate D3He reactivity (Molvig-Knudsen). Returns [sigmav , Ecm]"""
     R = impl.rfuel(t)
     Ti = impl.Ti(r,t)
     if r > R or Ti < 0.5:
         return [0,0]
-    Emin = Ti/2
-    Emax = 15*Ti
-    Molvig = quad(integrandD3He, Emin, Emax, args=(r,t,impl), epsrel = 1e-4, epsabs = 0)[0]
-    Thermal = D3He( impl.Ti(r,t) )
-    #if Thermal < Molvig or Molvig == 0:
-    #    print("foo")
-    #    return [Thermal , Eg(impl.Ti(r,t),1,2,2,3)]
-    Ecm = quad(integrandD3Hecm, Emin, Emax, args=(r,t,impl), epsrel = 1e-4, epsabs = 0)[0] / Molvig
+    E1 = max(Ti/2, Emin)
+    E2 = min(15*Ti, Emax)
+    NkD3He = Nk(impl, r, t, 1, 2)
+    Molvig = quad(integrandD3He, E1, E2, args=(NkD3He,Ti), epsrel = 1e-4, epsabs = 0)[0]
+    if Molvig <= 0:
+        return [ D3He(Ti) , Eg(Ti,1,2,2,3)]
+    Ecm = quad(integrandD3Hecm, E1, E2, args=(NkD3He,Ti), epsrel = 1e-4, epsabs = 0)[0] / Molvig
     return [Molvig , Ecm]
 # 3He3He reactivity:
-def integrandHeHe(En, r, t, impl):
+def integrandHeHe(En, NkHeHe, Ti):
     """Integrand for Molvig-Knudsen 3He3He reactivity."""
-    NkHeHe = Nk(impl, r, t, 2, 2)
-    Ti = impl.Ti(r,t)
-    return c*math.pow(Ti/(2*1.5e3*938),0.5)*math.pow(2/Ti,2)*sigmaHeHe(2*En)*fK(impl,En,NkHeHe,r,t)*En
-def integrandHeHecm(En, r, t, impl):
+    return c*math.pow(Ti/(2*1.5e3*938),0.5)*math.pow(2/Ti,2)*sigmaHeHe(2*En)*fK(En,NkHeHe,Ti)*En
+def integrandHeHecm(En, NkHeHe, Ti):
     """Integrand for Molvig-Knudsen 3He3He reactivity."""
-    NkHeHe = Nk(impl, r, t, 2, 2)
-    return En*integrandHeHe(En, r, t, impl)
+    return En*integrandHeHe(En, NkHeHe, Ti)
 def svHeHeMolvig(impl, r,t):
     """Calculate 3He3He reactivity (Molvig-Knudsen). Returns [sigmav , Ecm]"""
     R = impl.rfuel(t)
     Ti = impl.Ti(r,t)
     if r > R or Ti < 0.5:
         return [0,0]
-    Emin = Ti/2
-    Emax = 20*Ti
-    Molvig = quad(integrandHeHe, Emin, Emax, args=(r,t,impl), epsrel = 1e-4, epsabs = 0)[0]
-    Thermal = HeHe( impl.Ti(r,t) )
-    #if Thermal < Molvig or Molvig == 0:
-    #    print("foo")
-    #    return [Thermal , Eg(impl.Ti(r,t),2,2,3,3)]
-    Ecm = quad(integrandHeHecm, Emin, Emax, args=(r,t,impl), epsrel = 1e-4, epsabs = 0)[0] / Molvig
+    E1 = max(Ti/2, Emin)
+    E2 = min(20*Ti, Emax)
+    NkHeHe = Nk(impl, r, t, 2, 2)
+    Molvig = quad(integrandHeHe, E1, E2, args=(NkHeHe,Ti), epsrel = 1e-4, epsabs = 0)[0]
+    if Molvig <= 0:
+        return [ HeHe(Ti) , Eg(Ti,2,2,3,3)]
+    Ecm = quad(integrandHeHecm, E1, E2, args=(NkHeHe,Ti), epsrel = 1e-4, epsabs = 0)[0] / Molvig
     return [Molvig , Ecm]
 
 # ------------------------------------
@@ -237,7 +224,37 @@ def HeHerate(impl, t):
         ret += temp[0]*temp2
         ret2 += temp[1]*temp[0]*temp2
     return [ret , ret2]
- 
+
+# test Molvig reduced reactivity
+def checkCalc(verb=False):
+    if verb:
+        print("9keV plasma, 6g/cc D, 10um scale length")
+        Ti = 9
+        ni = 6 / (2*mp) # 6 g/cc D plasma
+        L = 10e-4 # 10um scale length
+        Nk = CalcNk(Ti, Ti, ni, 1, L, 0)
+        print(Nk)
+        Molvig = quad(integrandDD, Ti/2, 10*Ti, args=(Nk,Ti), epsrel = 1e-4, epsabs = 0)[0]
+        Thermal = DD( Ti )
+        print(Molvig)
+        print(Thermal)
+        ratio = Molvig / Thermal
+        print(ratio)
+    # check that Molvig reactivities reduce to Maxwellians
+    Ti = 10
+    Nk = 0
+    MolvigDD = quad(integrandDD, Ti/2, 10*Ti, args=(Nk,Ti), epsrel = 1e-4, epsabs = 0)[0]
+    MolvigD3He = quad(integrandD3He, Ti/2, 15*Ti, args=(Nk,Ti), epsrel = 1e-4, epsabs = 0)[0]
+    MolvigHeHe = quad(integrandHeHe, Ti/2, 20*Ti, args=(Nk,Ti), epsrel = 1e-4, epsabs = 0)[0]
+    AccErr = 0.1 # accept 10% errors
+    if (MolvigDD - DD(Ti))/MolvigDD > AccErr:
+        return False
+    if (MolvigD3He - D3He(Ti))/MolvigD3He > AccErr:
+        return False
+    if (MolvigHeHe - HeHe(Ti))/MolvigHeHe > AccErr:
+        return False
+    return True
+    
 # ------------------------------------
 # Main method
 # ------------------------------------
@@ -251,6 +268,10 @@ def run(impl):
     # Do precomputation
     LeffInit(impl)
     NkInit(impl)
+    # Quick self-check
+    if not checkCalc():
+        print("ERROR: Molvig reactivities do not properly reduce to Maxwellian. Aborting calculation.")
+        return
     
     # Yields
     YDD = 0
