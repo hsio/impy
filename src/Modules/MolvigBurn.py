@@ -1,5 +1,5 @@
 # Calculate yields, Ti, BT using Molvig reduced reactivit
-# A. Zylstra 2012/08/17
+# A. Zylstra 2012/08/22
 
 from Implosion import *
 from Resources.IO import *
@@ -13,8 +13,8 @@ import csv
 import os
 
 # integration step sizes
-dt = 10e-12 #10ps
-dr = 5e-4 #5um
+dt = 20e-12 #10ps
+dr = 10e-4 #5um
 
 #some interpolators
 LeffInt = 0
@@ -89,7 +89,7 @@ def fK(impl, En,Nk,r,t):
     eps = En / impl.Ti(r,t)
     #evaluated as prefactor and exponential
     p1 = 2 / math.sqrt( math.pi + Nk*math.pow(eps,1.5) )
-    p2 = math.exp( -1.0*(eps+0.8*Nk*math.pow(eps,2.5)+0.32*math.pow(Nk*eps*eps,2))/(1 + 0.8*Nk*math.pow(eps,1.5)) )
+    p2 = math.exp( -1.0*(eps+0.4*Nk*math.pow(eps,2.5)) )
     return p1*p2
     
 # DD reactivity:
@@ -102,7 +102,7 @@ def svDDMolvig(impl, r,t):
     R = impl.rfuel(t)
     if r > R or impl.Ti(r,t) < 0.5:
         return 0
-    return quad(integrand2, 0, 1000, args=(r,t,impl))[0]
+    return quad(integrand2, 1, 1000, args=(r,t,impl), epsrel = 1e-4, epsabs = 0)[0]
 # D3He reactivity:
 def integrand3(En, r, t, impl):
     """Integrand for Molvig-Knudsen D3He reactivity."""
@@ -113,7 +113,8 @@ def svD3HeMolvig(impl, r,t):
     R = impl.rfuel(t)
     if r > R or impl.Ti(r,t) < 0.5:
         return 0
-    return quad(integrand3, 0, 1000, args=(r,t,impl))[0]
+    ret =quad(integrand3, 1, 1000, args=(r,t,impl), epsrel = 1e-4, epsabs = 0)[0]
+    return ret
 # 3He3He reactivity:
 def integrand4(En, r, t, impl):
     """Integrand for Molvig-Knudsen 3He3He reactivity."""
@@ -124,7 +125,7 @@ def svHeHeMolvig(impl, r,t):
     R = impl.rfuel(t)
     if r > R or impl.Ti(r,t) < 0.5:
         return 0
-    return quad(integrand4, 0, 1000, args=(r,t,impl))[0]
+    return quad(integrand4, 1, 1000, args=(r,t,impl), epsrel = 1e-4, epsabs = 0)[0]
 
 # ------------------------------------
 # Fuel fraction helpers

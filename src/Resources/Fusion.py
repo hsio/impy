@@ -1,5 +1,5 @@
 # Fusion rate/xsection calculators
-# A. Zylstra 2012/08/08
+# A. Zylstra 2012/08/22
 
 #All reactivities use units cm^3/s
 import math
