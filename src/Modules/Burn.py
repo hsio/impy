@@ -1,5 +1,5 @@
 # Calculate yields, Ti
-# A. Zylstra 2012/09/22
+# A. Zylstra 2012/12/12
 
 from Implosion import *
 from Resources.IO import *
@@ -26,6 +26,9 @@ reactions.append( [ "DT" , 2, 1, 3, 1, Fusion.DT ] )
 reactions.append( [ "TT" , 3, 1, 3, 1, Fusion.TT ] )
 reactions.append( [ "D3He" , 2, 1, 3, 2, Fusion.D3He ] )
 reactions.append( [ "3He3He" , 3, 2, 3, 2, Fusion.HeHe ] )
+reactions.append( [ "HD", 1, 1, 2, 1, Fusion.HD ] )
+reactions.append( [ "p11B", 11, 5, 1, 1, Fusion.p11B ] )
+reactions.append( [ "p15N", 1, 1, 15, 7, Fusion.p15N ] )
 
 # global implosion
 impl = 0
@@ -35,31 +38,8 @@ impl = 0
 # ------------------------------------
 def f(r, t, A, Z):
     """Find fraction for fuel ion with A and Z."""
-    if Z == 1:
-        if A == 2:
-            return fD(r,t)
-        if A == 3:
-            return fT(r,t)
-    if Z == 2:
-        if A == 3:
-            return f3He(r,t)
-    return 0
-def fD(r, t):
-    """Calculate D fraction in implosion impl."""
     for i in range( len(impl.IonF(r,t)) ):
-        if impl.IonA(r,t)[i] == 2 and impl.IonZ(r,t)[i] == 1:
-            return impl.IonF(r,t)[i]
-    return 0
-def f3He(r, t):
-    """Calculate 3He fraction in implosion impl."""
-    for i in range( len(impl.IonF(r,t)) ):
-        if impl.IonA(r,t)[i] == 3 and impl.IonZ(r,t)[i] == 2:
-            return impl.IonF(r,t)[i]
-    return 0
-def fT(r, t):
-    """Calculate 3Te fraction in implosion impl."""
-    for i in range( len(impl.IonF(r,t)) ):
-        if impl.IonA(r,t)[i] == 3 and impl.IonZ(r,t)[i] == 1:
+        if impl.IonA(r,t)[i] == A and impl.IonZ(r,t)[i] == Z:
             return impl.IonF(r,t)[i]
     return 0
     
@@ -86,7 +66,7 @@ def rate(rxn, t):
     for r in arange( impl.rmin(t) , impl.rfuel(t) , dr ):
         r1 = r + dr/2
         Ti = impl.Ti(r1,t)
-        if (Ti > Ti_Min) or (Ti < Ti_Max):
+        if (Ti > Ti_Min) and (Ti < Ti_Max):
             f1 = f(r1,t,A1,Z1)
             f2 = f(r1,t,A2,Z2)
             temp = rxn[5](Ti)*pow(impl.ni(r1,t),2)*(f1*f2/dblcount)*4*math.pi*pow(r1,2)*dr

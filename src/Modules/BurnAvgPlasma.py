@@ -1,5 +1,5 @@
 # Calculate burn-averaged plasma parameters
-# A. Zylstra 2012/09/19
+# A. Zylstra 2013/03/01
 
 from Implosion import *
 from Resources.IO import *
@@ -62,9 +62,9 @@ def fT(r, t):
 # Burn rate calculators
 # ------------------------------------
 def rate(t):
-    """Calculate the 'rate' at time t (s). Returns [lD , ND, PlasmaF , MFP , tau_i , R_cs , R_vt ]"""
+    """Calculate the 'rate' at time t (s). Returns [lD , ND, PlasmaF , MFP , tau_i , R_cs , R_vt , tau_ei, Te]"""
     # return values
-    Yield = lD = ND = PlasmaF = MFP = tau_i = R_cs = R_vt = 0
+    Yield = lD = ND = PlasmaF = MFP = tau_i = R_cs = R_vt = tau_ei = Terate = 0
     rfuel = impl.rfuel(t)
     
     # iterate over radius
@@ -96,9 +96,11 @@ def rate(t):
         tau_i += w*Taui(ni,Ti,Z,A)
         R_cs += w * rfuel / impl.c(r,t)
         R_vt += w * rfuel / uTherm(Ti,A)
+        tau_ei += w * Tauei(ni,Ti,Z)
+        Terate += w * Te
     
     # return array
-    return [Yield, lD , ND, PlasmaF , MFP , tau_i , R_cs , R_vt ]
+    return [Yield, lD , ND, PlasmaF , MFP , tau_i , R_cs , R_vt , tau_ei , Terate]
         
  
 # ------------------------------------
@@ -122,6 +124,8 @@ def run(i):
     tau_i = 0 # ion-ion collision time
     R_vt = 0 # ion transit time R/vt
     R_cs = 0 # radius / sound speed
+    tau_ei = 0 # ion-electron collision time
+    Te = 0 # electron temp
     
     # output files
     file = csv.writer(open(os.path.join(OutputDir,'BurnAvgPlasma.csv'),'w'))
@@ -137,6 +141,8 @@ def run(i):
         tau_i += dRate[5]
         R_vt += dRate[6]
         R_cs += dRate[7]
+        tau_ei += dRate[8]
+        Te += dRate[9]
         
     #normalization
     lD = lD/Yield
@@ -146,6 +152,8 @@ def run(i):
     tau_i = tau_i / Yield
     R_vt = R_vt / Yield
     R_cs = R_cs / Yield
+    tau_ei = tau_ei / Yield
+    Te = Te / Yield
     
     file.writerow([ " Debye length",lD,"cm"])
     file.writerow(["Plasma parameter",ND])
@@ -154,3 +162,6 @@ def run(i):
     file.writerow([ "Ion collision time" , tau_i , "s" ])
     file.writerow([ "R/vt" , R_vt , "s" ])
     file.writerow([ "R/cs" , R_cs , "s" ])
+    file.writerow([ "tau_ei" , tau_ei , "s" ])
+    file.writerow([ "Te" , Te , "keV" ])
+

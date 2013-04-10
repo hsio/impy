@@ -89,6 +89,34 @@ def TT(Ti):
     E2 = max(10*Ti, 200)
     ret = quad(TTintegrand, E1, E2, args=(Ti), epsrel=1e-4, epsabs=0)
     return ret[0]
+
+def p11B(Ti):
+    """p11B reactivity, Ti in keV."""
+    # from Angulo
+    T9 = Ti*11600*1000*1e-9
+    ret = 1
+    if T9 <= 2:
+        ret = (2.68e12*math.pow(T9,-2/3))*math.exp(-12.097*math.pow(T9,-1/3))
+        ret = ret * (1 + 1.62*T9 - 1.31*T9**2 + 0.26*T9**3)
+        ret = ret + (2.12e6)*math.pow(T9,-3/2)*math.exp(-1.724/T9)
+    else:
+        ret = (5.84e11*math.pow(T9,-2/3)*math.exp(-12.097*math.pow(T9,-1/3)))
+        ret = ret / ( (math.pow(T9,-2/3) - 1.47)**2 + 0.187 )
+    return (1/Na)*ret
+
+def p15N(Ti):
+    """p15N reactivity, Ti in keV."""
+    # from Angulo
+    T9 = Ti*11600*1000*1e-9
+    ret = 1
+    if T9 > 2.5:
+        ret = 4.17e7*math.pow(T9,0.917)*math.exp(-3.292/T9)
+    else:
+        ret = 1.12e12*math.pow(T9,-2/3)*math.exp(-15.253*math.pow(T9,-1/3) -(T9/.28)**2)*(1+4.95*T9+143*T9**2)
+        ret = ret + 1.01e8*math.pow(T9,-3/2)*math.exp(-3.643/T9)
+        ret = ret + 1.19e9*math.pow(T9,-3/2)*math.exp(-7.406/T9)
+    return (1/Na)*ret
+
     
 # -----------------------------------------------
 #      Gamow
