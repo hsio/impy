@@ -1,5 +1,5 @@
 # Fusion rate/xsection calculators
-# A. Zylstra 2012/09/07
+# A. Zylstra 2013/03/13
 
 #All reactivities use units cm^3/s
 import math
@@ -135,6 +135,8 @@ def S(En):
     return 0
 def sigmaDDn(En):
     """ DD cross section as a function of CM energy. [E] = keV, [sigma] = cm^2."""
+    if En <= 1:
+        return 0
     # Bosch and Hale
     A1 = 5.3701e4
     A2 = 3.3027e2
@@ -146,6 +148,8 @@ def sigmaDDn(En):
     return (1.e-27) * SE / ( En*math.exp(BG/math.sqrt(En)) )
 def sigmaD3He(En):
     """ D3He cross section as a function of CM energy. [E] = keV, [sigma] = cm^2."""
+    if En <= 1:
+        return 0
     # Bosch and Hale
     A1 = 5.7501e6
     A2 = 2.5226e3
@@ -158,6 +162,8 @@ def sigmaD3He(En):
     return (1.e-27) * SE / ( En*math.exp(BG/math.sqrt(En)) )
 def sigmaHeHe(En):
     """ 3He3He cross section as a function of CM energy. [E] = keV, [sigma] = cm^2."""
+    if En <= 1:
+        return 0
     #return (1.e-24) * (5000 / En) * math.exp(-31.29*4.0*math.sqrt(3/En))
     En = 2*En # convert energy from CM to lab = x (A1+A2)/A2
     # Angulo
@@ -168,6 +174,8 @@ def sigmaHeHe(En):
     return (1.e-24) * (2*S/(1e-3*En)) * math.exp(-31.29*4.0*math.sqrt(3/En))
 def sigmaDT(En):
     """ DT cross section as a function of CM energy. [E] = keV, [sigma] = cm^2."""
+    if En <= 1:
+        return 0
     # Bosch and Hale
     A1 = 6.927e4
     A2 = 7.454e8
@@ -182,6 +190,8 @@ def sigmaDT(En):
     return (1.e-27) * SE / ( En*math.exp(BG/math.sqrt(En)) )
 def sigmaTT(En):
     """ TT cross section as a function of CM energy. [E] = keV, [sigma] = cm^2."""
+    if En <= 1:
+        return 0
     # S factor from S. Winkler et al, J. Phys G Nud. Pan. Phys. 18 (1992)
     En = 2*En # convert energy from CM to lab = x (A1+A2)/A2
     SE = 0.20 - 0.32*En*1e-3 + 0.476*math.pow( En*1e-3 , 2) # MeV b
