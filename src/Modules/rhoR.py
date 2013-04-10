@@ -9,7 +9,7 @@ import math
 import csv
 import os
 
-dt = 50e-12
+dt = 10e-12
 dr = 1e-4 #1um
 
 # helper method

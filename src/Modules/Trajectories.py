@@ -1,5 +1,5 @@
 # make various trajectories for plotting
-# A. Zylstra 2012/08/15
+# A. Zylstra 2012/10/26
 
 from Implosion import *
 from Resources.IO import *
@@ -28,6 +28,16 @@ def LagrangePlots(impl):
             rLast = rLast+vLast*dt
             vLast = impl.u(rLast, t)
         File.writerow([])
+        
+# ------------------------------------
+# Spit out shell radius
+# ------------------------------------
+def ShellTrajectory(impl):
+    """Write the shell radius versus time."""
+    File = csv.writer(open(os.path.join(OutputDir,'ShellR.csv'),'w'))
+    File.writerow( [ "Time (ns)" , "Fuel Radius (cm)" ] )
+    for t in list(arange(impl.tmin(), impl.tmax(), dt)):
+        File.writerow( [ t , impl.rfuel(t) ] )
 
 def run(impl):
     # input sanity check:
@@ -36,3 +46,4 @@ def run(impl):
         return
         
     LagrangePlots(impl)
+    ShellTrajectory(impl)

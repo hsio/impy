@@ -14,7 +14,7 @@ print("----------------------------------------")
 print("pyImplosion")
 print("Author: Alex Zylstra")
 print("Date: Sep 22, 2012")
-print("v0.8.0beta")
+print("v0.8.1")
 print("----------------------------------------")
 
 #path setup
