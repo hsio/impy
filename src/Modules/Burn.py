@@ -1,5 +1,5 @@
 # Calculate yields, Ti
-# A. Zylstra 2013/03/13
+# A. Zylstra 2013/04/13
 
 from Implosion import *
 from Resources.IO import *
@@ -9,10 +9,6 @@ from numpy import zeros
 import math
 import csv
 import os
-
-# integration step sizes
-dt = 10e-12 #10ps
-dr = 5e-4 #5um
 
 # cutoffs in Ti for calculations
 Ti_Min = 0.5
@@ -32,22 +28,12 @@ reactions.append( [ "D3He" , 2, 1, 3, 2, Fusion.D3He ] )
 
 # global implosion
 impl = 0
-
-# ------------------------------------
-# Fuel fraction helpers
-# ------------------------------------
-def f(r, t, A, Z):
-    """Find fraction for fuel ion with A and Z."""
-    for i in range( len(impl.IonF(r,t)) ):
-        if impl.IonA(r,t)[i] == A and impl.IonZ(r,t)[i] == Z:
-            return impl.IonF(r,t)[i]
-    return 0
     
 # ------------------------------------
 # Burn rate calculators
 # ------------------------------------
-def rate(rxn, t):
-    """Calculate the rate for a specified reaction rxn at time t (s)."""
+def rate(rxn, it):
+    """Calculate the rate for a specified reaction rxn at time index t."""
     # fuel info
     A1 = rxn[1]
     Z1 = rxn[2]
@@ -63,16 +49,24 @@ def rate(rxn, t):
     ret = 0
     ret2 = 0 #Ti 'rate'
     
-    for r in arange( impl.rmin(t) , impl.rfuel(t) , dr ):
-        r1 = r + dr/2
-        Ti = impl.Ti(r1,t)
-        if (Ti > Ti_Min):
-            Ti = min(Ti,Ti_Max)
-            f1 = f(r1,t,A1,Z1)
-            f2 = f(r1,t,A2,Z2)
-            temp = rxn[5](Ti)*pow(impl.ni(r1,t),2)*(f1*f2/dblcount)*4*math.pi*pow(r1,2)*dr
-            ret += temp
-            ret2 += temp*Ti
+    # iterate over all radii:
+    for ir in range( impl.ir_min() , impl.ir_fuel() ):
+        vol = impl.vol(ir,it)
+        Ti = impl.Ti(ir,it)
+        # crop Ti:
+        Ti = min(Ti,Ti_Max)
+
+        # get fuel fractions:
+        f1 = impl.f(ir,it,A1,Z1)
+        f2 = impl.f(ir,it,A2,Z2)
+
+        # burn rate for this zone:
+        temp = rxn[5](Ti)*pow(impl.ni(ir,it),2)*(f1*f2/dblcount)*vol
+
+        # append to return:
+        ret += temp
+        ret2 += temp*Ti
+
     return [ret , ret2]
  
 # ------------------------------------
@@ -106,18 +100,20 @@ def run(i):
         rateFileHeader.append( i[0] + " (1/s)" )
     rateFile.writerow( rateFileHeader )
     
+    # time step:
+    dt = impl.dt()
     #iterate over all time:
-    for t in list(arange(impl.tmin(), impl.tmax(), dt)):
-        rateFileRow = [t]
+    for it in range( impl.it_tc(), impl.it_max() ):
+        rateFileRow = [ impl.t(it) ]
         
         #iterate over reactions
         for i in range(len(reactions)):
-            [dY, dTi] = rate(reactions[i],t)
+            [dY, dTi] = rate(reactions[i],it)
             Y[i] += dY*dt
             Ti[i] += dTi*dt
             rateFileRow.append(dY)
             if dY > PeakRate[i]:
-                BT[i] = t
+                BT[i] = impl.t(it)
                 PeakRate[i] = dY
 
         #output

@@ -1,8 +1,8 @@
 # Python-based implosion analyzer
-# A. Zylstra 2013/03/13
+# A. Zylstra 2013/04/13
 
 # Command line arguments
-# python3.2 run.py (y/n) [(mode) (mode opts)]
+# python3 run.py (y/n) [(mode) (mode opts)]
 # (y/n): run all (or none) of the modules
 # (mode): 0, 1, 2 for Guderley, LILAC, HYADES
 # (mode opts): input parameters. Mode specific.
@@ -13,7 +13,7 @@ import os, sys, inspect
 print("----------------------------------------")
 print("pyImplosion")
 print("Author: Alex Zylstra")
-print("Date: Mar 13, 2013")
+print("Date: Apr 13, 2013")
 print("v0.9.0")
 print("----------------------------------------")
 

@@ -1,41 +1,36 @@
 # Run speed tests on an implosion
 # Author: A Zylstra
-# Date: 8/14/12
+# Date: 2013/04/13
 
 from Implosion import *
 from datetime import *
-import random
+import numpy.random as nprand
 
 def run(impl):
     # input sanity check:
     if not isinstance(impl,Implosion):
         print("WARNING: invalid input.")
         return
-        
-    #seen RNG
-    random.seed()
     
     print('Speed tests')
     
     # getting min, max times
-    print("Get min, max times (1E5)x")
+    print("Get min, max times (1E6)x")
     t1 = datetime.now()
-    for i in range(100000):
-        temp = impl.tmin()
-        temp = impl.tmax()
+    for i in range(1000000):
+        temp = impl.it_min()
+        temp = impl.it_max()
     t2 = datetime.now()
     print("    " + '{:.1f}'.format((t2-t1).total_seconds()) + "s")
     
     # getting min, max radii
-    print("Get min, max radii (1E5)x at min, max times")
+    print("Get min, max radii (1E6)x at min, max times")
     t1 = datetime.now()
-    tmin = impl.tmin()
-    tmax = impl.tmax()
-    for i in range(50000):
-        temp = impl.rmin(tmin)
-        temp = impl.rmin(tmax)
-        temp = impl.rmax(tmin)
-        temp = impl.rmax(tmax)
+    tmin = impl.it_min()
+    tmax = impl.it_max()
+    for i in range(1000000):
+        temp = impl.ir_min()
+        temp = impl.ir_max()
     t2 = datetime.now()
     print("    " + '{:.1f}'.format((t2-t1).total_seconds()) + "s")
     
@@ -43,26 +38,26 @@ def run(impl):
     print("Generating random (r,t) coordinates.")
     RandR = []
     RandT = []
-    for i in range(100000):
-        RandT.append( random.uniform(tmin, tmax))
-        rmin = impl.rmin(RandT[len(RandT)-1])
-        rmax = impl.rmax(RandT[len(RandT)-1])
-        RandR.append( random.uniform(rmin, rmax))
+    rmin = impl.ir_min()
+    rmax = impl.ir_max()
+    for i in range(1000000):
+        RandT.append( nprand.randint(tmin, tmax))
+        RandR.append( nprand.randint(rmin, rmax))
         
     #query ion density
-    print("Get ni (1E5)x at random coordinates.")
+    print("Get ni (1E6)x at random coordinates.")
     t1 = datetime.now()
     for i in range(len(RandT)):
         temp = impl.ni( RandR[i] , RandT[i] )
     t2 = datetime.now()
     print("    " + '{:.1f}'.format((t2-t1).total_seconds()) + "s")
-    print("Get Ti (1E5)x at random coordinates.")
+    print("Get Ti (1E6)x at random coordinates.")
     t1 = datetime.now()
     for i in range(len(RandT)):
         temp = impl.Ti( RandR[i] , RandT[i] )
     t2 = datetime.now()
     print("    " + '{:.1f}'.format((t2-t1).total_seconds()) + "s")
-    print("Get A,Z,F (1E5)x at random coordinates.")
+    print("Get A,Z,F (1E6)x at random coordinates.")
     t1 = datetime.now()
     for i in range(len(RandT)):
         temp = impl.IonA( RandR[i] , RandT[i] )

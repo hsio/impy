@@ -1,5 +1,5 @@
 # make various trajectories for plotting
-# A. Zylstra 2012/10/26
+# A. Zylstra 2013/04/13
 
 from Implosion import *
 from Resources.IO import *
@@ -8,9 +8,7 @@ import math
 import csv
 import os
 
-# integration step sizes
-dt = 10e-12 #10ps
-dr = 25e-4 #25um
+zones = 10 # Lagrance for every 10th zone
 
 # ------------------------------------
 # Make Lagrange plots
@@ -19,14 +17,11 @@ def LagrangePlots(impl):
     """Make Lagrange plots of initial material."""
     File = csv.writer(open(os.path.join(OutputDir,'Lagrange.csv'),'w'))
     #steps in radius:
-    for r in list(arange(impl.rmin(impl.tmin()),impl.rmax(impl.tmin()), dr)):
-        #steps in time:
-        rLast = r
-        vLast = 0
-        for t in list(arange(impl.tmin(), impl.tmax(), dt)):
-            File.writerow( [ t , rLast+vLast*dt ] )
-            rLast = rLast+vLast*dt
-            vLast = impl.u(rLast, t)
+    for ir in range(impl.ir_min() , impl.ir_max() , zones ):
+        for it in range(impl.it_min(), impl.it_max() ):
+            r = impl.r(ir,it)
+            t = impl.t(it)
+            File.writerow( [ t , r ] )
         File.writerow([])
         
 # ------------------------------------
@@ -36,8 +31,10 @@ def ShellTrajectory(impl):
     """Write the shell radius versus time."""
     File = csv.writer(open(os.path.join(OutputDir,'ShellR.csv'),'w'))
     File.writerow( [ "Time (ns)" , "Fuel Radius (cm)" ] )
-    for t in list(arange(impl.tmin(), impl.tmax(), dt)):
-        File.writerow( [ t , impl.rfuel(t) ] )
+    for it in range(impl.it_min(), impl.it_max() ):
+        t = impl.t(it)
+        r = impl.r( impl.ir_fuel() , it )
+        File.writerow( [ t , r ] )
 
 def run(impl):
     # input sanity check:

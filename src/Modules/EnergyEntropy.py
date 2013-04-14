@@ -1,5 +1,5 @@
 # Calculate energy and entropy in gas
-# A. Zylstra 2012/08/15
+# A. Zylstra 2013/04/13
 
 from Implosion import *
 from Resources.IO import *
@@ -11,33 +11,29 @@ import math
 import csv
 import os
 
-# integration step sizes
-dt = 10e-12 #10ps
-dr = 5e-4 #5um
-
 # ------------------------------------
 # Helper methods
 # ------------------------------------
-def ThermalEnergy(impl,t):
-    """Calculate the total thermal energy in the gas at time t (s). Returns Joules."""
+def ThermalEnergy(impl,it):
+    """Calculate the total thermal energy in the gas at time index it. Returns Joules."""
     Energy = 0.
-    for r in list(arange(impl.rmin(t), impl.rfuel(t), dr)):
-        Vol = 4*math.pi*pow(r+dr/2,2)*dr
+    for ir in range(impl.ir_min(), impl.ir_fuel()):
+        Vol = impl.vol(ir,it)
         #ion thermal energy
-        Energy += 1.5*impl.ni(r,t)*Vol*kB*impl.Ti(r,t)*11600.*1000.
+        Energy += 1.5*impl.ni(ir,it)*Vol*kB*impl.Ti(ir,it)*11600.*1000.
         #electron thermal energy
-        Energy += 1.5*impl.ne(r,t)*Vol*kB*impl.Te(r,t)*11600.*1000.
+        Energy += 1.5*impl.ne(ir,it)*Vol*kB*impl.Te(ir,it)*11600.*1000.
     return Energy*1e-7
     
-def alpha(impl,t):
-    """Calculate mass-weighted ratio of hydro pressure to Fermi pressure at time t."""
-    TotalMass = 1e-12 # small but non-zero
+def alpha(impl,it):
+    """Calculate mass-weighted ratio of hydro pressure to Fermi pressure at time index it."""
+    TotalMass = 1e-15 # small but non-zero
     alpha = 0.
-    for r in list(arange(impl.rmin(t), impl.rfuel(t), dr)):
-        Vol = 4*math.pi*pow(r+dr/2,2)*dr
-        Mass = Vol*impl.ni(r,t)*impl.Abar(r,t)*mp
-        Pf = max(PFermi(impl.ne(r,t)) , 1e-9)
-        alpha += (impl.P(r,t) / Pf ) * Mass
+    for ir in range(impl.ir_min(), impl.ir_fuel()):
+        Vol = impl.vol(ir,it)
+        Mass = Vol*impl.ni(ir,it)*impl.Abar(ir,it)*mp
+        Pf = max(PFermi(impl.ne(ir,it)) , 1e-9)
+        alpha += (impl.P(ir,it) / Pf ) * Mass
         TotalMass += Mass
     alpha = alpha / TotalMass
     return alpha
@@ -54,14 +50,14 @@ def run(impl):
     T = []
     maxE = 0. #max energy dumped into gas after shock collapse
     maxA = 0. #max alpha in gas after shock collapse
-    for t in list(arange(impl.tmin(), impl.tmax(), dt)):
-        tempE = ThermalEnergy(impl,t)
-        tempA = alpha(impl,t)
+    for it in range(impl.it_min(), impl.it_max()):
+        tempE = ThermalEnergy(impl,it)
+        tempA = alpha(impl,it)
         if tempE > maxE:
             maxE = tempE
         if tempA > maxA:
             maxA = tempA
-        T.append(t)
+        T.append( impl.t(it) )
         E.append(tempE)
         A.append(tempA)
     
