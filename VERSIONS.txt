@@ -1,3 +1,7 @@
+v0.9.1
+* Addition of T3He reactivity
+* Added fusion reaction spatial profile calculator
+
 v0.9.0
 Significant re-work of Molvig module. Tweaked burn module.
 
