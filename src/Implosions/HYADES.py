@@ -5,7 +5,7 @@
 # This code generally uses CGS units
 #
 # Author: Alex Zylstra
-# Date: 2013/04/13
+# Date: 2013/09/19
 
 #TODO: c,rho,P
 
@@ -243,13 +243,13 @@ class HYADES:
     # required material composition info
     def IonA(self, ir, it):
         """List of AMU masses for all ions at radial, temporal indices ir and it."""
-        return self.AtmWgt[self.RegNums[ir]-1]
+        return self.AtmWgt[max(self.RegNums[ir]-1, 0)]  # fix issue with first zone
     def IonZ(self, ir, it):
         """List of ion Z for all ions at radial, temporal indices ir and it."""
-        return self.AtmNum[self.RegNums[ir]-1]
+        return self.AtmNum[max(self.RegNums[ir]-1, 0)]  # fix issue with first zone
     def IonF(self, ir, it):
         """List of ion relative populations."""
-        return self.AtmFrc[self.RegNums[ir]-1]
+        return self.AtmFrc[max(self.RegNums[ir]-1, 0)]  # fix issue with first zone
     def Abar(self, ir, it):
         """Average ion A, at radial, temporal indices ir and it."""
         return numpy.dot( self.IonA(ir,it) , self.IonF(ir,it) )
