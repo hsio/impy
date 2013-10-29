@@ -1,9 +1,11 @@
 # Calculate yields, Ti
-# A. Zylstra 2013/07/25
+# A. Zylstra 2013/10/25
 
 from Implosion import *
 from Resources.IO import *
 from Resources import Fusion
+from Resources.GaussFit import GaussFit
+import numpy
 from numpy import arange
 from numpy import zeros
 import math
@@ -18,10 +20,10 @@ Ti_Max = 50
 reactions = []
 # syntax: [ name , A1, Z1, A2, Z2, reactivity fn ]
 reactions.append( [ "DD" , 2, 1, 2, 1, Fusion.DD ] )
-reactions.append( [ "DT" , 2, 1, 3, 1, Fusion.DT ] )
-reactions.append( [ "TT" , 3, 1, 3, 1, Fusion.TT ] )
+#reactions.append( [ "DT" , 2, 1, 3, 1, Fusion.DT ] )
+#reactions.append( [ "TT" , 3, 1, 3, 1, Fusion.TT ] )
 reactions.append( [ "D3He" , 2, 1, 3, 2, Fusion.D3He ] )
-reactions.append( [ "3He3He" , 3, 2, 3, 2, Fusion.HeHe ] )
+#reactions.append( [ "3He3He" , 3, 2, 3, 2, Fusion.HeHe ] )
 #reactions.append( [ "HD", 1, 1, 2, 1, Fusion.HD ] )
 #reactions.append( [ "p11B", 11, 5, 1, 1, Fusion.p11B ] )
 #reactions.append( [ "p15N", 1, 1, 15, 7, Fusion.p15N ] )
@@ -172,6 +174,7 @@ def run(i):
     for i in reactions:
         rateFileHeader.append( i[0] + " (1/s)" )
     rateFile.writerow( rateFileHeader )
+    burnRate = []
     
     # time step:
     dt = impl.dt()
@@ -192,6 +195,30 @@ def run(i):
 
         #output
         rateFile.writerow( rateFileRow )
+        burnRate.append(rateFileRow)
+
+    # Calculate burn widths:
+    burn_FWHM = numpy.ndarray(len(reactions))
+    for i in range(len(reactions)):
+        # get data for this reaction:
+        data = numpy.ndarray((len(burnRate),3))
+        for j in range(len(burnRate)):
+            data[j][0] = burnRate[j][0]
+            data[j][1] = burnRate[j][1+i]
+            data[j][2] = data[j][1]/1e3
+
+        # Normalize to make things easier on fitting routine:
+        Anorm = numpy.max(data)
+        Tnorm = BT[i]
+        for j in range(len(data)):
+            data[j][0] /= Tnorm
+            data[j][1] /= Anorm
+            data[j][2] /= Anorm
+
+        # Fit with a Gaussian
+        fitObj = GaussFit(data, guess=[1., 1., 0.1])
+        fit, cov = fitObj.do_fit(method='leastsq', guess=[1,1,1])
+        burn_FWHM[i] = 2.3548*fit[2]*Tnorm
     
     #If there is yield for a species, do output:
     #iterate over reactions
@@ -201,9 +228,10 @@ def run(i):
             print(reactions[i][0]+" yield = " + '{:.2e}'.format(Y[i]))
             print(reactions[i][0]+" Ti = " + '{:.2f}'.format(Ti[i]))
             print(reactions[i][0]+" BT = " + '{:.2e}'.format(BT[i]))
+            print(reactions[i][0]+" FWHM = " + '{:.2e}'.format(burn_FWHM[i]))
             yieldFile.writerow( [reactions[i][0],Y[i]] )
             TiFile.writerow( [reactions[i][0],Ti[i]] )
-            BTFile.writerow( [reactions[i][0],BT[i]] )
+            BTFile.writerow( [reactions[i][0],BT[i],burn_FWHM[i]] )
 
     # now calculate the profiles:
     print("Calculating profiles...")
