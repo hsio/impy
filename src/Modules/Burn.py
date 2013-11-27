@@ -216,10 +216,13 @@ def run(i):
             data[j][2] /= Anorm
 
         # Fit with a Gaussian
-        fitObj = GaussFit(data, guess=[1., 1., 0.1])
-        fit, cov = fitObj.do_fit(method='leastsq', guess=[1,1,1])
-        burn_FWHM[i] = 2.3548*fit[2]*Tnorm
-    
+        try:
+            fitObj = GaussFit(data, guess=[1., 1., 0.1])
+            fit, cov = fitObj.do_fit(method='leastsq', guess=[1,1,1])
+            burn_FWHM[i] = 2.3548*fit[2]*Tnorm
+        except:
+            burn_FWHM[i] = None
+            
     #If there is yield for a species, do output:
     #iterate over reactions
     for i in range(len(reactions)):

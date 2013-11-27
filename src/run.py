@@ -1,5 +1,5 @@
 # Python-based implosion analyzer
-# A. Zylstra 2013/07/25
+# A. Zylstra 2013/11/27
 
 # Command line arguments
 # python3 run.py (y/n) [(mode) (mode opts)]
@@ -13,8 +13,8 @@ import os, sys, inspect
 print("----------------------------------------")
 print("pyImplosion")
 print("Author: Alex Zylstra")
-print("Date: July 25, 2013")
-print("v0.9.1")
+print("Date: Nov 27, 2013")
+print("v0.9.2")
 print("----------------------------------------")
 
 #path setup

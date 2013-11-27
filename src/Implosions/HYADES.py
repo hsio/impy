@@ -5,7 +5,7 @@
 # This code generally uses CGS units
 #
 # Author: Alex Zylstra
-# Date: 2013/09/19
+# Date: 2013/11/05
 
 #TODO: c,rho,P
 
@@ -189,7 +189,7 @@ class HYADES:
         # find where the fuel is in the problem:
         iFuel = 0
         for j in range(self.ir_max()): #find out how many regions actually contain stuff
-            if self.fuel(self.IonZ(j,0)):
+            if self.fuel(self.IonA(j,0),self.IonZ(j,0)):
                 iFuel = max(iFuel, j)
         self.iFuel = iFuel
 
@@ -199,9 +199,15 @@ class HYADES:
     def RegionIdent(self, ir):
         """For radial index ir, returns material region number."""
         return self.RegNums[ir]
-    def fuel(self, Z):
+    def fuel(self, A, Z):
         """Check to see if this definition of Z contains something that could be fuel (Z=1,2)."""
-        return (1 in Z) or (2 in Z)
+        FuelA = [2,3,3]
+        FuelZ = [1,1,2]
+        for i in range(len(A)):
+            for j in range(len(FuelA)):
+                if FuelA[j] == A[i] and FuelZ[j] == Z[i]:
+                    return True
+        return False
         
             
     # ------------------------------------
