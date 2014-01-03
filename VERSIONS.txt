@@ -1,3 +1,7 @@
+v0.9.2
+* Misc updates and bug fixes to stabilize the original CLI version of this program.
+* Updated documentation and cleaned up repo of unused stuff
+
 v0.9.1
 * Addition of T3He reactivity
 * Added fusion reaction spatial profile calculator
