@@ -12,6 +12,12 @@ mode:	0 = Guderley
 	2 = HYADES
 mode opts: see below
 
+To run a HYADES implosion:
+	python3.2 run.py y 2 {fname}
+{fname} -> name of HYADES netCDF file
+
+Old functionality not currently supported
+------------------------------
 To run a Guderley implosion:
 	python3.2 run.py y 0 {R} {tc} {xi} {D2} {3He} {ei}
 replace:
@@ -25,7 +31,3 @@ replace:
 To run a LILAC implosion:
 	python3.2 run.py y 1 {fname}
 {fname} -> name of LILAC file
-
-To run a HYADES implosion:
-	python3.2 run.py y 2 {fname}
-{fname} -> name of HYADES netCDF file

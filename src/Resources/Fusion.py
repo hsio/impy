@@ -1,11 +1,14 @@
 # Fusion rate/xsection calculators
-# A. Zylstra 2013/03/13
+# A. Zylstra 2013/06/19
 
 #All reactivities use units cm^3/s
 import math
 from Resources.Constants import *
 from Resources.Plasma import *
 from scipy.integrate import quad
+import os
+import csv
+import scipy.interpolate
 
 def T9(Ti):
     """Convert from ion temperature in keV to T9."""
@@ -85,9 +88,9 @@ def TTintegrand(En, Ti):
     return c*math.sqrt(Ti/(math.pi*3e3*938))*math.pow(2/Ti,2)*sigmaTT(En)*math.exp(-En/Ti)*En
 def TT(Ti):
     """TT reactivity, Ti in keV."""
-    E1 = max(Ti/2, 0.5)
+    E1 = max(Ti/2, 1)
     E2 = max(10*Ti, 200)
-    ret = quad(TTintegrand, E1, E2, args=(Ti), epsrel=1e-4, epsabs=0)
+    ret = quad(TTintegrand, E1, E2, args=(Ti), epsrel=1e-4, epsabs=0, limit=100)
     return ret[0]
 
 def p11B(Ti):
@@ -117,7 +120,54 @@ def p15N(Ti):
         ret = ret + 1.19e9*math.pow(T9,-3/2)*math.exp(-7.406/T9)
     return (1/Na)*ret
 
-    
+# tabulated reactivity from the ENDF xsections (calculated by Dan)
+import os
+import csv
+data_Dan_T3He_E = []
+data_Dan_T3He_sv = []
+path = os.path.dirname(__file__)
+with open(os.path.join(path,'T3He.csv')) as csvfile:
+    csvreader = csv.reader(csvfile, delimiter=',')
+    for row in csvreader:
+        data_Dan_T3He_E.append(float(row[0]))
+        data_Dan_T3He_sv.append(float(row[1]))
+# set up interpolation:
+import scipy.interpolate
+T3He_interp_Dan = scipy.interpolate.interp1d(data_Dan_T3He_E, data_Dan_T3He_sv)
+
+def T3He_Dan(Ti):
+    """T3He reactivity, Ti in keV. Returns reactivity in cm^3/s. From Dan's calculation based on ENDF"""
+    return T3He_interp_Dan(Ti)
+
+# Data on reactivity from the 2011 NRL Formulary, pg 45
+data_T3He_E =   [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]
+data_T3He_sv =  [1e-28, 1e-25, 2.1e-22, 1.2e-20, 2.6e-19, 5.3e-18, 2.7e-17, 9.2e-17, 2.9e-16, 5.2e-16]
+T3He_interp_NRL = scipy.interpolate.interp1d(data_T3He_E, data_T3He_sv)
+
+def T3He_NRL(Ti):
+    """T3He reactivity, Ti in keV. Returns reactivity in cm^3/s. From NRL formulary values. Total reaction rate."""
+    return T3He_interp_NRL(Ti)
+
+def T3He_D_integrand(En, Ti):
+    """ for integrating T(3He,D)4He cross section."""
+    return c*math.sqrt(Ti/(math.pi*3e3*938))*math.pow(2/Ti,2)*sigmaT3He_D(En)*math.exp(-En/Ti)*En
+def T3He_D(Ti):
+    """T(3He,D)4He reactivity, Ti in keV. Returns reactivity in cm^3/s. Reactivity for T(3He,D)4He only (~half of total)"""
+    E1 = max(Ti/2, 1)
+    E2 = max(10*Ti, 200)
+    ret = quad(T3He_D_integrand, E1, E2, args=(Ti), epsrel=1e-4, epsabs=0, limit=100)
+    return ret[0]
+
+def T3He_np_integrand(En, Ti):
+    """ for integrating T3He cross section."""
+    return c*math.sqrt(Ti/(math.pi*3e3*938))*math.pow(2/Ti,2)*sigmaT3He_np(En)*math.exp(-En/Ti)*En
+def T3He_np(Ti):
+    """T(3He,np)4He reactivity, Ti in keV. Returns reactivity in cm^3/s."""
+    E1 = max(Ti/2, 1)
+    E2 = max(10*Ti, 200)
+    ret = quad(T3He_np_integrand, E1, E2, args=(Ti), epsrel=1e-4, epsabs=0, limit=100)
+    return ret[0]
+
 # -----------------------------------------------
 #      Gamow
 # -----------------------------------------------
@@ -188,7 +238,8 @@ def sigmaDT(En):
     SE = (A1 + En*(A2 + En*(A3 + En*A4))) / (1 + En*(B1+En*(B2+En*(B3+En*B4))))
     BG = 34.3827
     return (1.e-27) * SE / ( En*math.exp(BG/math.sqrt(En)) )
-def sigmaTT(En):
+
+def sigmaTT_Winkler(En):
     """ TT cross section as a function of CM energy. [E] = keV, [sigma] = cm^2."""
     if En <= 1:
         return 0
@@ -197,3 +248,64 @@ def sigmaTT(En):
     SE = 0.20 - 0.32*En*1e-3 + 0.476*math.pow( En*1e-3 , 2) # MeV b
     BG = 54.342
     return (1.e-24) * (SE/(1e-3*En)) * math.exp(-BG / math.sqrt(En))
+
+
+# tabulated cross section from ENDF for T(T,2n)4He
+data_TT_2n_E = []
+data_TT_2n_sigma = []
+path = os.path.dirname(__file__)
+for line in open(os.path.join(path,'TT_sigma_2n.csv')):
+    row = line.split()
+    data_TT_2n_E.append(float(row[0]))
+    data_TT_2n_sigma.append(float(row[1]))
+# set up interpolation:
+TT_2n_interp_sigma = scipy.interpolate.interp1d(data_TT_2n_E, data_TT_2n_sigma)
+# data from ENDF is in MeV , barns
+
+def sigmaTT(En):
+    """Cross section for T(T,2n)4He. Data from ENDF. [En] = keV, [sigma] = cm^2."""
+    # convert energy to MeV:
+    En = En/1000
+    # from CM to lab
+    En = 2*En
+    return (1e-24)*TT_2n_interp_sigma(En)  # w/ conversion to cm^2 from barns
+
+# tabulated cross section from ENDF for T(3He,D)4He
+data_T3He_D_E = []
+data_T3He_D_sigma = []
+path = os.path.dirname(__file__)
+for line in open(os.path.join(path,'T3He_sigma_D.csv')):
+    row = line.split()
+    data_T3He_D_E.append(float(row[0]))
+    data_T3He_D_sigma.append(float(row[1]))
+# set up interpolation:
+T3He_D_interp_sigma = scipy.interpolate.interp1d(data_T3He_D_E, data_T3He_D_sigma)
+# data from ENDF is in MeV , barns
+
+def sigmaT3He_D(En):
+    """Cross section for T(3He,D)4He. [En] = keV, [sigma] = cm^2."""
+    # convert energy to MeV:
+    En = En/1000
+    # from CM to lab
+    En = 2*En
+    return (1e-24)*T3He_D_interp_sigma(En)  # w/ conversion to cm^2 from barns
+
+# tabuled cross section from ENDF for T(3He,np)4He
+data_T3He_np_E = []
+data_T3He_np_sigma = []
+path = os.path.dirname(__file__)
+for line in open(os.path.join(path,'T3He_sigma_np.csv')):
+    row = line.split()
+    data_T3He_np_E.append(float(row[0]))
+    data_T3He_np_sigma.append(float(row[1]))
+# set up interpolation:
+T3He_np_interp_sigma = scipy.interpolate.interp1d(data_T3He_np_E, data_T3He_np_sigma)
+# data from ENDF is in MeV , barns
+
+def sigmaT3He_np(En):
+    """Cross section for T(3He,np)4He. [En] = keV, [sigma] = cm^2."""
+    # convert energy to MeV:
+    En = En/1000
+    # from CM to lab
+    En = 2*En
+    return (1e-24)*T3He_np_interp_sigma(En)  # w/ conversion to cm^2 from barns

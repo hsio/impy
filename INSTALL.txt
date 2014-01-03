@@ -1,15 +1,15 @@
 Author: A Zylstra
-Date: Aug 11, 2012
+Date: Jan 02, 2014
 
 Code dependencies [my version]:
-python3 [3.2.3]
+python3 [3.3.3]
 	-Probably the most important. Note that Python 3.x is not compatible with 2.x
-numpy [1.6.2]
-scipy [0.10.1]
+numpy [1.8.0]
+scipy [0.13.2]
 
 How to check your version:
 Python:
-	from terminal, type `python' or `python3.2'
+	from terminal, type `python' or `python3'
 Numpy:
 	open python, type:
 	     import numpy

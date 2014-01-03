@@ -1,7 +1,0 @@
-
-
-Major:
-- Proton spectrum module
-- Xray emission module
-- Xray image module
-- Unit test script (check yields on known test problem)

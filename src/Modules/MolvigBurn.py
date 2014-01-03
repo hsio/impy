@@ -1,5 +1,5 @@
 # Calculate yields, Ti, BT using Molvig reduced reactivity
-# A. Zylstra 2013/03/13
+# A. Zylstra 2013/04/13
 
 from Implosion import *
 from Resources.IO import *
@@ -14,8 +14,8 @@ import csv
 import os
 
 # integration step sizes
-dt = 20e-12 #10ps
-dr = 10e-4 #5um
+#dt = 20e-12 #10ps
+#dr = 10e-4 #5um
 
 # cutoffs in Ti for calculations
 Ti_Min = 0.5
@@ -95,20 +95,16 @@ def CalcNk(Ti, Te, ne, ni, Zbar, R, r, IonA, IonZ, IonF):
 def NkInit():
     """Precompute Nk vs r,t."""
     global NkArr
-    ir = math.ceil(max( impl.rfuel(impl.tmin()) , impl.rfuel(impl.tmax()) ) / dr)
-    it = math.ceil(( impl.tmax() - impl.tmin() ) / dt)
+    ir = impl.ir_fuel() - impl.ir_min()
+    it = impl.it_max() - impl.it_min()
     NkArr = numpy.ndarray( shape=(ir, it) , dtype=float )
-    for i in range(int(ir)):
-        for j in range(int(it)):
-            r = i*dr
-            t = impl.tmin() + j*dt
-            temp = CalcNk( impl.Ti(r,t) , impl.Te(r,t) , impl.ne(r,t) , impl.ni(r,t) , impl.Zbar(r,t) , impl.rfuel(t) , r,
-                impl.IonA(r,t), impl.IonZ(r,t), impl.IonF(r,t))
+    for i in range(ir):
+        for j in range(it):
+            temp = CalcNk( impl.Ti(i,j) , impl.Te(i,j) , impl.ne(i,j) , impl.ni(i,j) , impl.Zbar(i,j) , impl.r(impl.ir_fuel(),j) , impl.r(i,j),
+                impl.IonA(i,j), impl.IonZ(i,j), impl.IonF(i,j))
             NkArr[i,j] = temp 
-def Nk(r, t, Z, A):
+def Nk(ir, it, Z, A):
     """Knudsen number for fusion with ion charges Z and mass A (relative to proton Knudsen #)."""
-    ir = int( r / dr )
-    it = int( ( t - impl.tmin() ) / dt )
     return  ( NkArr[ir,it] / (pow(Z,2)*pow(A,1/2)) )
     
 # Knudsen distribution function:
@@ -125,39 +121,6 @@ def fK(En, Nk, Ti):
     p1 = (1/norm[0]) / math.sqrt( math.pi + Nk*math.pow(eps,1.5) )
     p2 = math.exp( -1.*(eps+0.8*Nk*math.pow(eps,2.5)+0.32*math.pow(Nk*eps*eps,2))/(1+0.8*Nk*math.pow(eps,1.5)) )
     return p1*p2
-
-# ------------------------------------
-# Fuel fraction helpers
-# ------------------------------------
-def f(r, t, A, Z):
-    """Find fraction for fuel ion with A and Z."""
-    if Z == 1:
-        if A == 2:
-            return fD(r,t)
-        if A == 3:
-            return fT(r,t)
-    if Z == 2:
-        if A == 3:
-            return f3He(r,t)
-    return 0
-def fD(r, t):
-    """Calculate D fraction in implosion impl."""
-    for i in range( len(impl.IonF(r,t)) ):
-        if impl.IonA(r,t)[i] == 2 and impl.IonZ(r,t)[i] == 1:
-            return impl.IonF(r,t)[i]
-    return 0
-def f3He(r, t):
-    """Calculate 3He fraction in implosion impl."""
-    for i in range( len(impl.IonF(r,t)) ):
-        if impl.IonA(r,t)[i] == 3 and impl.IonZ(r,t)[i] == 2:
-            return impl.IonF(r,t)[i]
-    return 0
-def fT(r, t):
-    """Calculate 3Te fraction in implosion impl."""
-    for i in range( len(impl.IonF(r,t)) ):
-        if impl.IonA(r,t)[i] == 3 and impl.IonZ(r,t)[i] == 1:
-            return impl.IonF(r,t)[i]
-    return 0
     
 # ------------------------------------
 # Reactivity calculators
@@ -187,11 +150,11 @@ def integrand(xi, E2, E1, rxn, Nk1, Nk2, Ti):
 def integrandcm(En, rxn, Nk1, Nk2, Ti):
     """Integrand for Molvig-Knudsen reactivity CM energy."""
     return En*integrand(En, rxn, Nk1, Nk2, Ti)
-def svMolvig(rxn, r,t):
+def svMolvig(rxn, ir, it):
     """Calculate reactivity (Molvig-Knudsen) for given reaction. Returns [sigmav , Ecm, Ti, Nk]"""
-    R = impl.rfuel(t)
-    Ti = impl.Ti(r,t)
-    if (r > R) or (Ti < Ti_Min) or (Ti > Ti_Max):
+    iR = impl.ir_fuel()
+    Ti = impl.Ti(ir,it)
+    if (ir > iR) or (Ti < Ti_Min) or (Ti > Ti_Max):
         return [0,0,0,0]
     Elow = max(Ti/2, Emin)
     Ehigh = min(20*Ti, Emax)
@@ -199,8 +162,8 @@ def svMolvig(rxn, r,t):
     Z1 = rxn[2]
     A2 = rxn[3]
     Z2 = rxn[4]
-    Nk1 = Nk(r, t, Z1, A1)
-    Nk2 = Nk(r, t, Z2, A2)
+    Nk1 = Nk(ir, it, Z1, A1)
+    Nk2 = Nk(ir, it, Z2, A2)
     Molvig = tplquad(integrand, Elow, Ehigh, (lambda x: Elow), (lambda x: Ehigh), (lambda x,y: -1), (lambda x,y: 1), args=(rxn,Nk1,Nk2,Ti), epsrel = 1e-4, epsabs = 0)[0]
     if Molvig <= 0:
         return [ rxn[6](Ti) , Fusion.Eg(Ti,rxn[2],rxn[4],rxn[1],rxn[3]), Ti]
@@ -210,7 +173,7 @@ def svMolvig(rxn, r,t):
 # ------------------------------------
 # Burn rate calculators
 # ------------------------------------
-def rate(rxn, t):
+def rate(rxn, it):
     """Calculate the DD burn rate at time t (s)."""
     # fuel info
     A1 = rxn[1]
@@ -229,12 +192,12 @@ def rate(rxn, t):
     Ti = 0 # Ti 'rate'
     Nk = 0 # Nk 'rate'
     
-    for r in numpy.arange( impl.rmin(t) , impl.rfuel(t) , dr ):
-        r1 = r + dr/2
-        f1 = f(r1,t,A1,Z1)
-        f2 = f(r1,t,A2,Z2)
-        temp = svMolvig(rxn,r,t)
-        temp2 = pow(impl.ni(r1,t),2)*(f1*f2/dblcount)*4*math.pi*pow(r1,2)*dr
+    for ir in range( impl.ir_min() , impl.ir_fuel() ):
+        vol = impl.vol(ir,it)
+        f1 = impl.f(ir,it,A1,Z1)
+        f2 = impl.f(ir,it,A2,Z2)
+        temp = svMolvig(rxn,ir,it)
+        temp2 = pow(impl.ni(ir,it),2)*(f1*f2/dblcount)*vol
         if len(temp)>=4:
             Yield += temp[0]*temp2
             Ecm += temp[1]*temp[0]*temp2
@@ -381,21 +344,23 @@ def run(i):
         rateFileHeader.append( i[0] + " (1/s)" )
     rateFile.writerow( rateFileHeader )
     
+    # time step:
+    dt = impl.dt()
     #iterate over all time:
-    for t in list(numpy.arange(impl.tmin(), impl.tmax(), dt)):
-        rateFileRow = [t]
-        print(t)
+    for it in range(impl.it_tc(), impl.it_max()):
+        rateFileRow = [ impl.t(it) ]
+        print( impl.t(it) )
         
         #iterate over reactions
         for i in range(len(reactions)):
-            [dY, dEcm, dTi, dNk] = rate(reactions[i],t)
+            [dY, dEcm, dTi, dNk] = rate(reactions[i],it)
             Y[i] += dY*dt
             Ecm[i] += dEcm*dt
             Ti[i] += dTi*dt
             Nk[i] += dNk*dt
             rateFileRow.append(dY)
             if dY > PeakRate[i]:
-                BT[i] = t
+                BT[i] = impl.t(it)
                 PeakRate[i] = dY
 
         #output
