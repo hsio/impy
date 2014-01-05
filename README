@@ -1,0 +1,17 @@
+General Information
+===================
+
+This is a post-processor and viewer for hydrodynamics simulations.
+
+The goal is to provide a unified framework for interpretation of results from HYADES, LILAC, and analytic Guderley modeling of implosions. The code is extensible for future addition of other simulation types or post-processor modules. The project is written in python3 and makes heavy use of scipy/numpy for the computational aspects, and tkinter/matplotlib for the user interface.
+
+Development environment requirements:
+- python [>=3.3.3]
+- numpy [>=1.8.0]
+- scipy [>=0.13.2]
+- matplotlib [>=1.3.1]
+For documentation:
+- Sphinx
+For building binaries:
+- setuptools
+- cx_Freeze
