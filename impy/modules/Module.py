@@ -1,11 +1,11 @@
 """ Python-based abstract representation of a module. All post-processor modules must implement these methods.
 
 :author: Alex Zylstra
-:date: 2014-01-05
+:date: 2014-01-08
 """
 
 __author__ = 'Alex Zylstra'
-__date__ = '2014-01-05'
+__date__ = '2014-01-08'
 __version__ = '1.0.0'
 
 from abc import ABCMeta, abstractmethod
@@ -27,6 +27,8 @@ class Module(metaclass=ABCMeta):
 
     type='CLI': A full list of arguments passed to the executable, to be interpreted as the module pleases.
 
+    :param wm: A window manager to use for GUI windows during construction
+
     Notes for implementers of modules:
 
     * The constructor should not do any computationally intensive tasks. Those should be done in `run`, which
@@ -35,14 +37,14 @@ class Module(metaclass=ABCMeta):
     * The `run` method should not interact with the user or display any results (for portability!)
 
     :author: Alex Zylstra
-    :date: 2014-01-05
+    :date: 2014-01-08
     """
 
     # ----------------------------------------
     #           Generic methods
     # ----------------------------------------
     @abstractmethod
-    def __init__(self, type='GUI', args=''):
+    def __init__(self, type='GUI', args='', wm=None):
         """Construct a new instance of this module."""
         pass
 
@@ -62,26 +64,21 @@ class Module(metaclass=ABCMeta):
     #       Execution and GUI control
     # ----------------------------------------
     @abstractmethod
-    def run(self):
-        """Run the calculation."""
-        pass
+    def run(self, imp):
+        """Run the calculation.
 
-    @abstractmethod
-    def display(self, type='GUI'):
-        """Display the results.
-
-        :param type: The type of interface to be used. Available options are 'GUI' and 'CLI'.
+        :param imp: An `Implosion` object.
         """
         pass
 
     @abstractmethod
-    def hide(self):
-        """Hide the module (i.e. any windows and plots generated)"""
-        pass
+    def display(self, type='GUI', refresh=False, wm=None):
+        """Display the results.
 
-    @abstractmethod
-    def abort(self):
-        """Signal that the calculation should be interrupted."""
+        :param type: The type of interface to be used. Available options are 'GUI' and 'CLI'. Default is GUI.
+        :param refresh: (optional) If set to True, only existing windows should be updated.
+        :param wm: (optional) Window manager to use for displaying windows
+        """
         pass
 
     @abstractmethod

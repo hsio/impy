@@ -115,8 +115,9 @@ class BoschHale(Reaction):
         :param Ti: Temperature [keV]
         :raises: :py:exc:`ValueError`
         """
-        if Ti < cls.TiMin or Ti > cls.TiMax:
-            raise ValueError('Temperature outside of valid range for ' + cls.name() + ' at ' + str(Ti))
+        #TODO: general sanity checks for scalars and arrays
+        #if Ti < cls.TiMin or Ti > cls.TiMax:
+        #    raise ValueError('Temperature outside of valid range for ' + cls.name() + ' at ' + str(Ti))
 
         theta = Ti / (1-Ti*(cls.C2+Ti*(cls.C4+Ti*cls.C6))/(1+Ti*(cls.C3+Ti*(cls.C5+Ti*cls.C7))))
         xi = np.power(np.power(cls.BG,2)/(4*theta), 1/3)
@@ -129,8 +130,9 @@ class BoschHale(Reaction):
         :param En: CM energy [keV]
         :raises: :py:exc:`ValueError`
         """
-        if En < cls.energyMin or En > cls.energyMax:
-            raise ValueError('Energy outside of valid range for ' + cls.name() + ' at ' + str(En))
+        #TODO: general sanity checks for scalars and arrays
+        #if En < cls.energyMin or En > cls.energyMax:
+        #    raise ValueError('Energy outside of valid range for ' + cls.name() + ' at ' + str(En))
 
         SE = (cls.A1 + En*(cls.A2 + En*(cls.A3 + En*cls.A4))) / (1 + En*(cls.B1+En*(cls.B2+En*(cls.B3+En*cls.B4))))
         return 1e-27 * SE / ( En*np.exp(cls.BG/np.sqrt(En)) )
@@ -139,6 +141,7 @@ class DT(BoschHale):
     """D+T fusion, i.e. T(D,n)4He."""
     reactantA = (2,3)
     reactantZ = (1,1)
+    @classmethod
     def name(cls):
         return 'DT'
     C1 = 1.17302e-9
@@ -169,6 +172,7 @@ class DDn(BoschHale):
     """DDn fusion, i.e. D(D,n)3He."""
     reactantA = (2,2)
     reactantZ = (1,1)
+    @classmethod
     def name(cls):
         return 'DDn'
     C1 = 5.43360e-12
@@ -195,6 +199,7 @@ class DDp(BoschHale):
     """DDp fusion, i.e. D(D,p)T."""
     reactantA = (2,2)
     reactantZ = (1,1)
+    @classmethod
     def name(cls):
         return 'DDp'
     C1 = 5.65718e-12
@@ -222,6 +227,7 @@ class D3He(BoschHale):
     """D3He fusion, i.e. 3He(D,p)4He."""
     reactantA = (2,3)
     reactantZ = (1,2)
+    @classmethod
     def name(cls):
         return 'D3He'
     C1 = 5.51036e-10
@@ -252,6 +258,7 @@ class D3He(BoschHale):
 #TODO: p11B
 #TODO: p15N
 
+
 # For ease in iterating:
 import inspect
 def allReactions():
@@ -269,3 +276,32 @@ def allReactions():
         if not inspect.isabstract(t):
             temp2.append(t)
     return temp2
+
+
+def fuel(A, Z):
+    """Check to see if this definition of ion composition contains something that could be fuel,
+    i.e. it will produce yield for some defined reaction.
+
+    :param A: A list of ion atomic mass [AMU]
+    :param Z: A list of ion atomic numbers [e]
+
+    A and Z must be either python lists or :py:class:`numpy.ndarray`
+    """
+    # sanity:
+    assert isinstance(A, list) or isinstance(A, np.ndarray)
+    assert isinstance(Z, list) or isinstance(Z, np.ndarray)
+
+    # Come up with lists of fuel ion pairs:
+    FuelA = []
+    FuelZ = []
+    for r in allReactions():
+        FuelA.append(r.reactantA)
+        FuelZ.append(r.reactantZ)
+
+    # Now compare what we were given to the lists of stuff that's fuel:
+    for i in range(len(FuelA)):
+        for j in range(len(A)):
+            if FuelA[i][0] == A[j] and FuelA[i][1] == A[j] \
+                and FuelZ[i][0] == Z[j] and FuelZ[i][1] == Z[j]:
+                return True
+    return False
