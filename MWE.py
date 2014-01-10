@@ -6,6 +6,8 @@ import tkinter as tk
 import tkinter.ttk as ttk
 from impy.gui.WindowManager import WindowManager
 
+import matplotlib, matplotlib.pyplot
+
 class Application(tk.Tk):
     """Analysis and database application for the NIF WRF data"""
 
@@ -28,6 +30,8 @@ class Application(tk.Tk):
         # add a key binding to close:
         self.bind('<Escape>', self.quit)
 
+        self.configureMatplotlib()
+
     def createWidgets(self):
         self.DBInfoButton = ttk.Button(self, text="Open and run", command=self.run)
         self.DBInfoButton.grid(row=0, column=0)
@@ -38,7 +42,6 @@ class Application(tk.Tk):
         self.mod.display(type='GUI', wm=self.wm)
 
     def run(self, *args):
-        t1 = datetime.now()
         print('Creating HYADES')
         from impy.implosions.Hyades import Hyades
         from tkinter.filedialog import askopenfilename
@@ -48,6 +51,7 @@ class Application(tk.Tk):
                        parent=None)
         filename = askopenfilename(parent=self)
 
+        t1 = datetime.now()
         self.imp = Hyades(type='File', args=filename)
         self.imp.generate()
 
@@ -73,6 +77,13 @@ class Application(tk.Tk):
             mod.run(self.imp)
         t2 = datetime.now()
         print( '{:.2f}'.format((t2-t1).total_seconds()) + "s elapsed")
+
+    def configureMatplotlib(self):
+        # set matplotlib backend
+        if matplotlib.get_backend() != 'tkagg':
+            matplotlib.pyplot.switch_backend('TkAgg')
+        matplotlib.pyplot.rc('font', **{'size':'8'})
+        matplotlib.pyplot.rc('text', **{'usetex':False})
 
 def main():
     app = Application()

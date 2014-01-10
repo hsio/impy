@@ -9,6 +9,7 @@ from impy.resources.fusion import *
 import tkinter as tk
 import tkinter.ttk as ttk
 from impy.gui.widgets.Table_View import Table_Viewer
+import matplotlib, matplotlib.pyplot
 
 
 class Burn(Module, tk.Toplevel):
@@ -50,6 +51,7 @@ class Burn(Module, tk.Toplevel):
         # results:
         self.Y = dict()
         self.Ti = dict()
+        self.burnRate = dict()
 
     def __createWidgets__(self):
         pass
@@ -83,6 +85,9 @@ class Burn(Module, tk.Toplevel):
         # Ion temperature
         Ti = imp.Ti(it, ir)
 
+        # Times (saved for plotting)
+        self.time = imp.t(it)
+
         # Iterate over reactions:
         for rxn in allReactions():
             Y = imp.calcYield(it,ir,rxn)  # yield in each zone/time
@@ -95,6 +100,10 @@ class Burn(Module, tk.Toplevel):
                 self.Ti[rxn.name()] = np.sum((Y*Ti) / self.Y[rxn.name()])
             else:
                 self.Ti[rxn.name()] = 0
+
+            # Calculate burn rate:
+            if self.Y[rxn.name()] > 0:
+                self.burnRate[rxn.name()] = np.sum(Y, axis=1)
 
     def display(self, type='GUI', refresh=False, wm=None):
         """Display the results.
@@ -176,7 +185,10 @@ class Burn(Module, tk.Toplevel):
         #self.label1 = ttk.Label(self, text="Show")
         #self.label1.grid(row=0, column=0)
         scalarButton = ttk.Button(self, text="Scalars", command=self.__scalarViewer__)
-        scalarButton.grid(row=0, column=1)
+        scalarButton.grid(row=0, column=0)
+
+        burnRateButton = ttk.Button(self, text="Burn Rate", command=self.__burnRate__)
+        burnRateButton.grid(row=1, column=0)
 
     def __scalarViewer__(self, *args):
         """Helper function which is called to create the scalar viewer"""
@@ -192,3 +204,22 @@ class Burn(Module, tk.Toplevel):
         TV.update_idletasks()
         if self.wm is not None:
             self.wm.addWindow(TV)
+
+    def __burnRate__(self, *args):
+        """Helper function to generate plot of burn rate"""
+        fig = matplotlib.pyplot.figure(figsize=(4,3))
+        ax = fig.add_subplot(111)
+
+        for k in self.burnRate.keys():
+            ax.plot(self.time, self.burnRate[k], label=k)
+
+        ax.set_xlabel('Time (s)', fontsize=10)
+        ax.set_ylabel('Burn Rate (1/s)', fontsize=10)
+        ax.legend()
+
+        matplotlib.pyplot.tight_layout()
+
+        if self.wm is not None:
+            self.wm.addWindow(matplotlib.pyplot.get_current_fig_manager().window)
+
+        fig.show()

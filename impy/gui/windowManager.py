@@ -74,6 +74,8 @@ class WindowManager:
         """
         assert isinstance(w, tk.Toplevel) or isinstance(w, tk.Tk)
 
+        w.update_idletasks()
+
         # if requested, place the window:
         if not passive:
             # Get the width and height, then use the other function in this class to get a spot to put it:
