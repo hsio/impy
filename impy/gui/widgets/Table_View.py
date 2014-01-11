@@ -28,7 +28,7 @@ class Table_Viewer_Frame(ttk.Frame):
     :param build: (optional) Whether to call the widget building functions in the constructor [default=True]
 
     :author: Alex Zylstra
-    :date: 2014-01-10
+    :date: 2014-01-11
     :version: 1.0.0
     """
     def __init__(self, columns=("Quantity", "Value"), data=[("","",)], parent=None, build=True):
@@ -68,7 +68,7 @@ class Table_Viewer_Frame(ttk.Frame):
 
         # add in new data:
         for col in self.tree_columns:
-            self.tree.heading(col, text=col.title(),
+            self.tree.heading(col, text=col,
                 command=lambda c=col: __sortby__(self.tree, c, 0))
             # set up with width based on font
             self.tree.column(col, width=tkFont.Font().measure(col.title()))

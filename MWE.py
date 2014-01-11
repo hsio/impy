@@ -24,19 +24,20 @@ class Application(tk.Tk):
 
         # stretch the column to fill all space:
         tk.Grid.columnconfigure(self, 0, weight=1)
-        tk.Grid.columnconfigure(self, 1, weight=1)
-        tk.Grid.columnconfigure(self, 2, weight=1)
+        #tk.Grid.columnconfigure(self, 1, weight=1)
+        #tk.Grid.columnconfigure(self, 2, weight=1)
 
         # add a key binding to close:
-        self.bind('<Escape>', self.quit)
+        self.bind('<Escape>', self.close)
+        self.protocol("WM_DELETE_WINDOW", self.close)
 
         self.configureMatplotlib()
 
     def createWidgets(self):
         self.DBInfoButton = ttk.Button(self, text="Open and run", command=self.run)
-        self.DBInfoButton.grid(row=0, column=0)
+        self.DBInfoButton.grid(row=0, column=0, sticky='ns')
         self.DBInfoButton = ttk.Button(self, text="Burn", command=self.showBurn)
-        self.DBInfoButton.grid(row=1, column=0)
+        self.DBInfoButton.grid(row=1, column=0, sticky='ns')
 
     def showBurn(self, *args):
         self.mod.display(type='GUI', wm=self.wm)
@@ -67,16 +68,15 @@ class Application(tk.Tk):
         self.mod.display(type='CLI')
         t2 = datetime.now()
         print( '{:.2f}'.format((t2-t1).total_seconds()) + "s elapsed")
-        t1 = datetime.now()
 
 
-        t1 = datetime.now()
-        print('Run fusion yield calculation 100x more:')
-        for i in range(100):
-            mod = Burn()
-            mod.run(self.imp)
-        t2 = datetime.now()
-        print( '{:.2f}'.format((t2-t1).total_seconds()) + "s elapsed")
+        # t1 = datetime.now()
+        # print('Run fusion yield calculation 100x more:')
+        # for i in range(100):
+        #     mod = Burn()
+        #     mod.run(self.imp)
+        # t2 = datetime.now()
+        # print( '{:.2f}'.format((t2-t1).total_seconds()) + "s elapsed")
 
     def configureMatplotlib(self):
         # set matplotlib backend
@@ -84,6 +84,14 @@ class Application(tk.Tk):
             matplotlib.pyplot.switch_backend('TkAgg')
         matplotlib.pyplot.rc('font', **{'size':'8'})
         matplotlib.pyplot.rc('text', **{'usetex':False})
+        matplotlib.rcParams['toolbar'] = 'None'
+
+    def close(self):
+        """Handle closing the application."""
+        import matplotlib
+        matplotlib.pyplot.close("all")
+        self.withdraw()
+        self.quit()
 
 def main():
     app = Application()

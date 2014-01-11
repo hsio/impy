@@ -1,5 +1,5 @@
 __author__ = 'Alex Zylstra'
-__date__ = '2014-01-08'
+__date__ = '2014-01-11'
 __version__ = '1.0.0'
 
 import tkinter as tk
@@ -36,7 +36,7 @@ class WindowManager:
     :param screenWidth: The width of the screen in pixels
     :param screenHeight: The height of the screen in pixels
     :author: Alex Zylstra
-    :date: 2014-01-08
+    :date: 2014-01-11
     """
     #: Step size in horizontal placement [pixels]
     dx = 10
@@ -105,11 +105,15 @@ class WindowManager:
         conflict = False
         # have to loop over all current windows:
         for w in self.windows:
-            assert isinstance(w, tk.Toplevel) or isinstance(w, tk.Tk)
-            if w.wm_state() == 'normal':
-                g = parseGeometry(w.geometry())
-                p1 = (g[2], g[3])
-                p2 = (g[2]+g[0], g[3]+g[1])
-                if __rectOverlap__(p1,p2,p3,p4):
-                    return True
+            # Wrap in try/except block in case windows are totally deleted
+            try:
+                assert isinstance(w, tk.Toplevel) or isinstance(w, tk.Tk)
+                if w.wm_state() == 'normal':
+                    g = parseGeometry(w.geometry())
+                    p1 = (g[2], g[3])
+                    p2 = (g[2]+g[0], g[3]+g[1])
+                    if __rectOverlap__(p1,p2,p3,p4):
+                        return True
+            except:
+                self.windows.remove(w)
         return False

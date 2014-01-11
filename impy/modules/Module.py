@@ -1,11 +1,11 @@
 """ Python-based abstract representation of a module. All post-processor modules must implement these methods.
 
 :author: Alex Zylstra
-:date: 2014-01-08
+:date: 2014-01-11
 """
 
 __author__ = 'Alex Zylstra'
-__date__ = '2014-01-08'
+__date__ = '2014-01-11'
 __version__ = '1.0.0'
 
 from abc import ABCMeta, abstractmethod
@@ -37,7 +37,7 @@ class Module(metaclass=ABCMeta):
     * The `run` method should not interact with the user or display any results (for portability!)
 
     :author: Alex Zylstra
-    :date: 2014-01-08
+    :date: 2014-01-11
     """
 
     # ----------------------------------------
@@ -54,9 +54,16 @@ class Module(metaclass=ABCMeta):
         """Get a string containing a name for this type of module."""
         pass
 
+    @classmethod
     @abstractmethod
-    def info(self):
-        """Get a string of information about this specific module."""
+    def info(cls):
+        """Get a brief description of this specific module."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def detailedInfo(cls):
+        """Get any detailed description and explanation of this module."""
         pass
 
 
