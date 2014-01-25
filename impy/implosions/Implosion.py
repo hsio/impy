@@ -1,11 +1,10 @@
 """ Python-based abstract representation of an implosion. All implosion types must implement these methods.
 
 :author: Alex Zylstra
-:date: 2014-01-08
+:date: 2014-01-23
 """
-
 __author__ = 'Alex Zylstra'
-__date__ = '2014-01-08'
+__date__ = '2014-01-23'
 __version__ = '1.0.0'
 
 from abc import ABCMeta, abstractmethod
@@ -67,8 +66,11 @@ class Implosion(metaclass=ABCMeta):
     a scalar or a 2-D :py:class:`numpy.ndarray` (respectively).
 
     :author: Alex Zylstra
-    :date: 2014-01-08
+    :date: 2014-01-23
     """
+    __author__ = 'Alex Zylstra'
+    __date__ = '2014-01-23'
+    __version__ = '1.0.0'
     
     # ----------------------------------------
     #           Generic methods
@@ -83,6 +85,7 @@ class Implosion(metaclass=ABCMeta):
     def getFileTypes(cls):
         """Get a list containing extensions of file types supported by this implosion.
         Must be an array of dicts ready to pass to file dialog, e.g.::
+
             [('description', '*.ext')]
         """
         pass
@@ -101,11 +104,6 @@ class Implosion(metaclass=ABCMeta):
     @abstractmethod
     def generate(self):
         """Run the calculation to generate the implosion data."""
-        pass
-
-    @abstractmethod
-    def abort(self):
-        """Signal that the implosion generation should be interrupted."""
         pass
 
     @abstractmethod
@@ -299,7 +297,7 @@ class Implosion(metaclass=ABCMeta):
 
         :param it: Time index (may be ignored if implosions have a constant time step)
         :param ir: Optional since dt is the same for all spatial zones. However, this gives the option of getting a
-        2-D array as the return value, which is convenient for some calculations.
+            2-D array as the return value, which is convenient for some calculations.
         :returns: The delta in time between it and it+1 [s]
         """
         pass
@@ -470,6 +468,23 @@ class Implosion(metaclass=ABCMeta):
         Y = sigmav * np.power(self.ni(it,ir), 2) * (f1*f2/dblcount) * self.vol(it,ir) * self.dt(it,ir)
 
         self.yieldData[rxn.name()] = Y
+
+    # ----------------------------------------
+    #      Stuff needed for pickling
+    # ----------------------------------------
+    def __getstate__(self):
+        """Get the current state of this object as a `dict`.
+        If there are members of the object that cannot be pickled, such as
+        open files or GUI windows, they must be removed from the returned `dict`.
+        """
+        state = self.__dict__.copy()
+        return state
+
+    def __setstate__(self, state):
+        """Set the state of this object from a given `dict`"""
+        # Restore instance attributes (i.e., filename and lineno).
+        self.__dict__.update(state)
+
 
 def allImplosions():
     """Get a list containing all implemented implosions. """

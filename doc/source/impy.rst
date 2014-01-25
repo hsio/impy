@@ -1,10 +1,10 @@
 impy Package
 ===============
 
-:mod:`impy` Package
+:mod:`impy` Module
 ----------------------
 
-.. automodule:: impy.__init__
+.. automodule:: impy
     :members:
     :undoc-members:
     :show-inheritance:

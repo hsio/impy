@@ -1,6 +1,3 @@
-__author__ = 'Alex Zylstra'
-__date__ = '2014-01-11'
-__version__ = '1.0.0'
 
 from impy.modules.Module import Module
 from impy.implosions.Implosion import Implosion
@@ -10,6 +7,7 @@ import tkinter as tk
 import tkinter.ttk as ttk
 from impy.gui.widgets.Table_View import Table_Viewer_Frame
 import matplotlib, matplotlib.pyplot
+import pickle
 
 
 class Burn(Module, tk.Toplevel):
@@ -30,8 +28,11 @@ class Burn(Module, tk.Toplevel):
     :param wm: A window manager to use for GUI windows during construction
 
     :author: Alex Zylstra
-    :date: 2014-01-11
+    :date: 2014-01-23
     """
+    __author__ = 'Alex Zylstra'
+    __date__ = '2014-01-23'
+    __version__ = '1.0.0'
 
     # ----------------------------------------
     #           Generic methods
@@ -43,10 +44,10 @@ class Burn(Module, tk.Toplevel):
         #TODO: implement some options
 
         # set a few instance variables:
-        self.progress = 0
+        self.runProgress = 0
 
         # Keep track of all plots created:
-        self.plots = []
+        self.plots = dict()
 
         # results:
         self.Y = dict()
@@ -80,9 +81,9 @@ class Burn(Module, tk.Toplevel):
 
         :param imp: An `Implosion` object.
         """
-        #TODO: Bang time, burn width
-        #TODO: Store data for plotting
+        #TODO: burn width
         assert isinstance(imp, Implosion)
+        self.runProgress = 0.
 
         # limits for calculations (all space/time):
         it = (imp.it_min(), imp.it_max())
@@ -120,6 +121,9 @@ class Burn(Module, tk.Toplevel):
                 dr = bins[1]-bins[0]
                 self.burnRadiusBins[rxn.name()] = (bins[:-1]+dr/2)*1e4  # convert to um
 
+            # Update progress:
+            self.runProgress += 1./len(allReactions())
+
     def display(self, type='GUI', refresh=False, wm=None):
         """Display the results.
 
@@ -155,16 +159,37 @@ class Burn(Module, tk.Toplevel):
                     print('     BT    = ' + '{:.2f}'.format(self.bangTime[k]) + ' ns')
 
         elif refresh:
-            pass
-        #TODO: implement refresh options for display
+            self.__scalarViewer__(refresh=True)
+            self.__burnRate__(refresh=True)
+            self.__burnRadius__(refresh=True)
 
     def progress(self):
         """Get the calculation's progress estimate.
 
         :returns: Scalar number between 0 and 1.
         """
-        #TODO: implement progress
-        return self.progress
+        return self.runProgress
+
+    def copy(self, other):
+        """Copy the results from `other` to this module.
+
+        :param other: Another instance of this class
+        """
+        assert isinstance(other, Burn)
+        try:
+            self.time = np.copy(other.time)
+            self.Y = other.Y.copy()
+            self.Ti = other.Ti.copy()
+            self.burnRate = other.burnRate.copy()
+            self.bangTime = other.bangTime.copy()
+            self.burnRadius = other.burnRadius.copy()
+            self.burnRadiusBins = other.burnRadiusBins.copy()
+        except:
+            pass
+
+    def getPlots(self):
+        """Return a list of all :py:class:`matplot.pyplot.Figure` instances created by this module."""
+        return self.plots.values()
 
     # ----------------------------------------
     #           Results handling
@@ -179,8 +204,31 @@ class Burn(Module, tk.Toplevel):
 
         'pickle': Pickle the calculation results
         """
-        #TODO: implement save functionality
-        pass
+        if type == 'CSV':
+            with open(filename, 'w') as file:
+                csvwriter = csv.writer(file)
+                file.write('Yields\n')
+                for row in self.Y.items():
+                    csvwriter.writerow(row)
+                file.write('Ti (keV)\n')
+                for row in self.Ti.items():
+                    csvwriter.writerow(row)
+
+            with open(filename, 'ab') as file:
+                np.savetxt(file, self.time, header='Time:')
+                for key in self.burnRate.keys():
+                    np.savetxt(file, self.burnRate[key], header='Burn rate '+key)
+                    np.savetxt(file, self.burnRadius[key], header='Burn radius '+key)
+                    np.savetxt(file, self.burnRadiusBins[key], header='Burn radius bins '+key)
+
+        elif type == 'pickle':
+            with open(filename, 'wb') as file:
+                pickle.dump(self.time, file)
+                pickle.dump(self.Y, file)
+                pickle.dump(self.Ti, file)
+                pickle.dump(self.burnRate, file)
+                pickle.dump(self.burnRadius, file)
+                pickle.dump(self.burnRadiusBins, file)
 
     def savePlots(self, dir, prefix, type):
         """Save all generated plots.
@@ -194,8 +242,22 @@ class Burn(Module, tk.Toplevel):
             prefix + my_name + '.' + type
 
         """
-        #TODO: save plots
-        pass
+        for key in self.plots.keys():
+            fname = os.path.join(dir, prefix+'_'+key+'.'+type)
+            self.plots[key].savefig(fname, bbox_inches='tight')
+
+    # ----------------------------------------
+    #      Stuff needed for pickling
+    # ----------------------------------------
+    def __getstate__(self):
+        """Get the current state of this object as a `dict`"""
+        state = self.__dict__.copy()
+        badKeys = ['wm','master','tk','_w','widgetName','plots','_tclCommands','_name','children','scalars']
+
+        for key in badKeys:
+            if key in state.keys():
+                del state[key]
+        return state
 
     # ----------------------------------------
     #           GUI stuff
@@ -206,13 +268,13 @@ class Burn(Module, tk.Toplevel):
         scalarLabel.grid(row=0, column=0, columnspan=2)
 
         self.__scalarViewer__()
-        self.scalars.grid(row=1, column=0, columnspan=2)
+        self.scalars.grid(row=1, column=0, columnspan=2, sticky='nsew')
         self.scalars.pack_propagate(0)
         self.scalars.grid_propagate(0)
         self.scalars.configure(width=250, height=100)
 
         plotLabel = ttk.Label(self, text='Plots')
-        plotLabel.grid(row=2, column=0, columnspan=2)
+        plotLabel.grid(row=2, column=0, columnspan=2, sticky='ns')
 
         burnRateButton = ttk.Button(self, text="Burn Rate", command=self.__burnRate__)
         burnRateButton.grid(row=3, column=0)
@@ -220,7 +282,7 @@ class Burn(Module, tk.Toplevel):
         burnRadiusButton = ttk.Button(self, text="Burn Radius", command=self.__burnRadius__)
         burnRadiusButton.grid(row=3, column=1)
 
-    def __scalarViewer__(self, *args):
+    def __scalarViewer__(self, refresh=False, *args):
         """Helper function which is called to create the scalar viewer"""
         # Make a table to view the scalar results:
         columns = ('Reaction', 'Yield', 'Ti (keV)', 'BT (ns)')
@@ -228,12 +290,26 @@ class Burn(Module, tk.Toplevel):
         for k in self.Y.keys():
             if self.Y[k] > 0:  # only display reactions with non-zero yield
                 data.append( (k, '{:.2e}'.format(self.Y[k]), '{:.2f}'.format(self.Ti[k]), '{:.2f}'.format(self.bangTime[k])) )
-        self.scalars = Table_Viewer_Frame(columns=columns, data=data, parent=self)
+        if not refresh:
+            self.scalars = Table_Viewer_Frame(columns=columns, data=data, parent=self)
+        else:
+            self.scalars.setData(columns, data)
 
-    def __burnRate__(self, *args):
+    def __burnRate__(self, refresh=False, *args):
         """Helper function to generate plot of burn rate"""
-        fig = matplotlib.pyplot.figure(figsize=(4,3))
-        fig.canvas.set_window_title('Burn Rate')
+        # Update the existing plot, if it exists
+        refresh = refresh or 'burnRate' in self.plots.keys()
+        if refresh:
+            if 'burnRate' in self.plots.keys():
+                fig = self.plots['burnRate']
+                fig = matplotlib.pyplot.figure(fig.number)
+                fig.clear()
+            else:
+                return
+        # Make a new window:
+        else:
+            fig = matplotlib.pyplot.figure(figsize=(4,3))
+            fig.canvas.set_window_title('Burn Rate')
         ax = fig.add_subplot(111)
 
         for k in self.burnRate.keys():
@@ -245,15 +321,27 @@ class Burn(Module, tk.Toplevel):
 
         matplotlib.pyplot.tight_layout()
 
-        if self.wm is not None:
-            self.wm.addWindow(matplotlib.pyplot.get_current_fig_manager().window)
+        if not refresh:
+            if self.wm is not None:
+                self.wm.addWindow(matplotlib.pyplot.get_current_fig_manager().window)
+            fig.show()
+            fig.canvas.draw()
+        self.plots['burnRate'] = fig
 
-        fig.show()
-
-    def __burnRadius__(self, *args):
+    def __burnRadius__(self, refresh=False, *args):
         """Helper function to generate plot of burn rate"""
-        fig = matplotlib.pyplot.figure(figsize=(4,3))
-        fig.canvas.set_window_title('Burn Radius')
+        refresh = refresh or 'burnRadius' in self.plots.keys()
+        if refresh:
+            if 'burnRadius' in self.plots.keys():
+                fig = self.plots['burnRadius']
+                fig = matplotlib.pyplot.figure(fig.number)
+                fig.clear()
+            else:
+                return
+        # Make a new window:
+        else:
+            fig = matplotlib.pyplot.figure(figsize=(4,3))
+            fig.canvas.set_window_title('Burn Radius')
         ax = fig.add_subplot(111)
 
         maxr = 0  # for plotting
@@ -268,10 +356,11 @@ class Burn(Module, tk.Toplevel):
 
         matplotlib.pyplot.tight_layout()
 
-        if self.wm is not None:
-            self.wm.addWindow(matplotlib.pyplot.get_current_fig_manager().window)
-
-        fig.show()
+        if not refresh:
+            if self.wm is not None:
+                self.wm.addWindow(matplotlib.pyplot.get_current_fig_manager().window)
+            fig.show()
+        self.plots['burnRadius'] = fig
 
     def __r1__(self, k):
         """Find the 10% burn radius for reaction k. Helper function for plotting"""

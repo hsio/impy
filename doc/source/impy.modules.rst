@@ -9,3 +9,11 @@ modules Package
     :members:
     :undoc-members:
     :show-inheritance:
+
+:mod:`Burn` Module
+---------------------------
+
+.. automodule:: impy.modules.Burn
+    :members:
+    :undoc-members:
+    :show-inheritance:

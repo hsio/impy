@@ -23,14 +23,18 @@ class Table_Viewer_Frame(ttk.Frame):
 
     :param columns: (optional) A :py:class:`tuple` containing :py:class:`str` names of each column
     :param data: (optional) The data to display. Should be a :py:class:`list` where each element is a :py:class:`tuple`
-    corresponding to column values. The length of each tuple must match the length of the `columns` argument.
+        corresponding to column values. The length of each tuple must match the length of the `columns` argument.
     :param parent: (optional) The parent of this frame [default=None]
     :param build: (optional) Whether to call the widget building functions in the constructor [default=True]
 
     :author: Alex Zylstra
-    :date: 2014-01-11
+    :date: 2014-01-23
     :version: 1.0.0
     """
+    __author__ = 'Alex Zylstra'
+    __date__ = '2014-01-23'
+    __version__ = '1.0.0'
+
     def __init__(self, columns=("Quantity", "Value"), data=[("","",)], parent=None, build=True):
         """Constructor"""
         super(Table_Viewer_Frame, self).__init__(parent)
@@ -85,12 +89,12 @@ class Table_Viewer_Frame(ttk.Frame):
     def setData(self, columns, data):
         """Set the data to be displayed.
 
-        :param columns: (optional) A :py:class:`tuple` containing :py:class:`str` names of each column
-        :param data: (optional) The data to display. Should be a :py:class:`list` where each element is a :py:class:`tuple`
-        corresponding to column values. The length of each tuple must match the length of the `columns` argument.
+        :param columns: A :py:class:`tuple` containing :py:class:`str` names of each column
+        :param data: The data to display. Should be a :py:class:`list` where each element is a :py:class:`tuple`
+            corresponding to column values. The length of each tuple must match the length of the `columns` argument.
         """
-        self.tree_columns = ("Quantity", "Value")  # the column headings
-        self.tree_data = [("",      "",)]  # the tree data
+        self.tree_columns = columns  # the column headings
+        self.tree_data = data  # the tree data
 
         # Update the display:
         self.refresh()
@@ -104,17 +108,19 @@ class Table_Viewer(tk.Toplevel):
 
     :param columns: (optional) A :py:class:`tuple` containing :py:class:`str` names of each column
     :param data: (optional) The data to display. Should be a :py:class:`list` where each element is a :py:class:`tuple`
-    corresponding to column values. The length of each tuple must match the length of the `columns` argument.
+        corresponding to column values. The length of each tuple must match the length of the `columns` argument.
     :param parent: (optional) The parent of this window [default=None]
     :param build: (optional) Whether to call the widget building functions in the constructor [default=True]
     :param title: (optional) The window title [default='']
     :param widgets: (optional) A list of tkinter :py:class`tkinter.Widget`s to be added to this window [default=None]
 
     :author: Alex Zylstra
-    :date: 2014-01-10
+    :date: 2014-01-23
     :version: 1.0.0
     """
-
+    __author__ = 'Alex Zylstra'
+    __date__ = '2014-01-23'
+    __version__ = '1.0.0'
 
     def __init__(self, columns=("Quantity", "Value"), data=[("","",)], parent=None, build=True, title='', widgets=[]):
         """Initialize the table."""

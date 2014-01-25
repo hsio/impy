@@ -1,14 +1,15 @@
 """ Python-based abstract representation of a module. All post-processor modules must implement these methods.
 
 :author: Alex Zylstra
-:date: 2014-01-11
+:date: 2014-01-23
 """
 
 __author__ = 'Alex Zylstra'
-__date__ = '2014-01-11'
+__date__ = '2014-01-23'
 __version__ = '1.0.0'
 
 from abc import ABCMeta, abstractmethod
+import inspect
 
 
 class Module(metaclass=ABCMeta):
@@ -37,8 +38,11 @@ class Module(metaclass=ABCMeta):
     * The `run` method should not interact with the user or display any results (for portability!)
 
     :author: Alex Zylstra
-    :date: 2014-01-11
+    :date: 2014-01-23
     """
+    __author__ = 'Alex Zylstra'
+    __date__ = '2014-01-23'
+    __version__ = '1.0.0'
 
     # ----------------------------------------
     #           Generic methods
@@ -96,6 +100,19 @@ class Module(metaclass=ABCMeta):
         """
         pass
 
+    @abstractmethod
+    def copy(self, other):
+        """Copy the results from `other` to this module.
+
+        :param other: Another instance of this class
+        """
+        pass
+
+    @abstractmethod
+    def getPlots(self):
+        """Return a list of all :py:class:`matplot.pyplot.Figure` instances created by this module."""
+        pass
+
     # ----------------------------------------
     #           Results handling
     # ----------------------------------------
@@ -126,3 +143,29 @@ class Module(metaclass=ABCMeta):
 
         """
         pass
+
+    # ----------------------------------------
+    #      Stuff needed for pickling
+    # ----------------------------------------
+    def __getstate__(self):
+        """Get the current state of this object as a `dict`.
+        If there are members of the object that cannot be pickled, such as
+        open files or GUI windows, they must be removed from the returned `dict`.
+        """
+        state = self.__dict__.copy()
+        return state
+
+    def __setstate__(self, state):
+        """Set the state of this object from a given `dict`"""
+        # Restore instance attributes (i.e., filename and lineno).
+        self.__dict__.update(state)
+
+def allModules():
+    """Get a list containing all implemented implosions. """
+    temp = Module.__subclasses__() + [g for s in Module.__subclasses__()
+                                   for g in s.__subclasses__()]
+    temp2 = []
+    for t in temp:
+        if not inspect.isabstract(t):
+            temp2.append(t)
+    return temp2

@@ -1,6 +1,3 @@
-__author__ = 'Alex Zylstra'
-__date__ = '2014-01-06'
-__version__ = '1.0.0'
 
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -15,12 +12,15 @@ class Option_Prompt(tk.Toplevel):
     :param parent: The parent UI element
     :param title: (optional) A title to display on this window [default=None]
     :param text: (optional) Text to display next to the prompt [default=None]
-    :param options: (optional) The list of options that the user can choose from
+    :param options: (optional) The list of options that the user can choose from. First element must be ''
     :param width: (optional) the width in characters for the drop-down menu [default=10]
 
     :author: Alex Zylstra
-    :date: 2014-01-06
+    :date: 2014-01-25
     """
+    __author__ = 'Alex Zylstra'
+    __date__ = '2014-01-25'
+    __version__ = '1.0.0'
 
     def __init__(self, parent, title=None, text=None, options=[], width=10):
         """Initialize the dialog window"""
@@ -54,7 +54,7 @@ class Option_Prompt(tk.Toplevel):
             label1.pack()
 
         if options is not None:
-            self.var = tk.StringVar()
+            self.var = tk.StringVar('')
             menu = ttk.OptionMenu(self, self.var, *options)
             menu.configure(width=width)
             menu.pack()

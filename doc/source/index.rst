@@ -14,7 +14,9 @@ Contents:
    impy
    impy.implosions
    impy.modules
+   impy.gui
    impy.resources
+   impy.util
 
 
 Indices and tables
