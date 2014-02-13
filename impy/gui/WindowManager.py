@@ -59,8 +59,8 @@ class WindowManager:
         """
 
         # iterate over possible placement locations:
-        for j in np.arange(0, self.screenHeight, self.dy):
-            for i in np.arange(0, self.screenWidth, self.dx):
+        for j in np.arange(0, self.screenHeight-height, self.dy):
+            for i in np.arange(0, self.screenWidth-width, self.dx):
                 if not self.__conflict__(i, j, width, height):
                     return i,j
         # if we fail to find a location:

@@ -17,3 +17,30 @@ modules Package
     :members:
     :undoc-members:
     :show-inheritance:
+
+
+:mod:`Lagrange` Module
+---------------------------
+
+.. automodule:: impy.modules.Lagrange
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+:mod:`Snapshot` Module
+---------------------------
+
+.. automodule:: impy.modules.Snapshot
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+:mod:`rhoR` Module
+---------------------------
+
+.. automodule:: impy.modules.rhoR
+    :members:
+    :undoc-members:
+    :show-inheritance:

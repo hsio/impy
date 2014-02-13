@@ -264,7 +264,7 @@ class Hyades(Implosion):
         ret = np.ndarray((it[1]-it[0],ir[1]-ir[0]), dtype=np.float)
         for i in np.arange(it[0], it[1], 1):
             for j in np.arange(ir[0], ir[1], 1):
-                ret[i][j] = self.rho(i,j)*(self.r_raw[i][j+1]-self.r_raw[i][j])
+                ret[i-it[0]][j-ir[0]] = self.rho(i,j)*(self.r_raw[i][j+1]-self.r_raw[i][j])
         return ret
 
     # ----------------------------------------
@@ -559,7 +559,7 @@ class Hyades(Implosion):
         # find where the fuel is in the problem:
         iFuel = 0
         for j in range(self.ir_max()): #find out how many regions actually contain stuff
-            if fusion.fuel(self.IonA(j,0), self.IonZ(j,0)):
+            if fusion.fuel(self.IonA(0,j), self.IonZ(0,j)):
                 iFuel = max(iFuel, j)
         self.iFuel = iFuel
 

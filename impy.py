@@ -45,7 +45,7 @@ class impy(tk.Tk):
         self.processes = []
         self.windows = []
         self.__createWidgets__()
-        self.minsize(150,200)
+        self.minsize(200,200)
         self.title('impy')
 
         self.wm = WindowManager(self.winfo_screenwidth(), self.winfo_screenheight())
@@ -121,10 +121,10 @@ class impy(tk.Tk):
             label = ttk.Label(self, text=mod.name())
             label.grid(row=row, column=0)
             self.modControlVars[mod.name()] = tk.IntVar()
-            check = ttk.Checkbutton(self, variable=self.modControlVars[mod.name()], command= lambda: self.__runModule__(mod), state=tk.DISABLED)
+            check = ttk.Checkbutton(self, variable=self.modControlVars[mod.name()], command= lambda a=mod.name():self.__runModule__(a), state=tk.DISABLED)
             check.grid(row=row, column=1)
             self.modControlChecks[mod.name()] = check
-            infoButton = ttk.Button(self, text='Info', command= lambda: self.__modInfo__(mod.name()), width=4)
+            infoButton = ttk.Button(self, text='Info', command= lambda a=mod.name(): self.__modInfo__(a), width=4)
             infoButton.grid(row=row, column=2)
             row += 1
 
@@ -282,11 +282,15 @@ class impy(tk.Tk):
             if self.modRedisplay[mod.name()]:
                 self.__runModule__(mod)
 
-    def __runModule__(self, mod):
+    def __runModule__(self, modName):
         """Run a specified module.
 
-        :param mode: The module class to run
+        :param mod: The name of the module class to run
         """
+        for x in allModules():
+            if x.name() == modName:
+                mod = x
+
         # Check whether we are loading or unloading:
         if self.modControlVars[mod.name()].get() == 1:
             # Prepare the module if not done already:
