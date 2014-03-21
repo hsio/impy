@@ -4,6 +4,7 @@ __version__ = '1.0.0'
 
 import tkinter as tk
 import numpy as np
+import scipy, scipy.signal
 import re
 
 def __rectOverlap__(p1, p2, p3, p4):
@@ -44,11 +45,10 @@ class WindowManager:
     dy = 10
 
     def __init__(self, screenWidth, screenHeight):
-        """foo"""
+        """Constructor for a new window manager."""
         self.windows = []
         self.screenWidth = screenWidth
         self.screenHeight = screenHeight
-
 
     def getLocation(self, width, height):
         """Get a location for a new window of specified size. Units in pixels.
@@ -57,14 +57,37 @@ class WindowManager:
         :param height: The height of the window
         :returns: tuple containing coordinates (x,y)
         """
+        usageMatrix = np.ones((self.screenHeight/20,self.screenWidth/20), dtype=np.float32)
 
-        # iterate over possible placement locations:
-        for j in np.arange(0, self.screenHeight-height, self.dy):
-            for i in np.arange(0, self.screenWidth-width, self.dx):
-                if not self.__conflict__(i, j, width, height):
-                    return i,j
-        # if we fail to find a location:
-        return 0,0
+        for w in self.windows:
+            # Wrap in try/except block in case windows are totally deleted
+            try:
+                assert isinstance(w, tk.Toplevel) or isinstance(w, tk.Tk)
+                if w.wm_state() == 'normal':
+                    g = parseGeometry(w.geometry())
+                    # width of extra window stuff including title bar:
+                    borderx = w.winfo_rootx() - g[2]
+                    bordery = w.winfo_rooty() - g[3]
+
+                    x = np.floor(g[2]/20)
+                    y = np.floor((g[3])/20)
+                    w = np.ceil((g[0]+borderx)/20)
+                    h = np.ceil((g[1]+bordery)/20)
+                    usageMatrix[y:y+h,x:x+w] = 0
+            except tk.TclError:
+                self.windows.remove(w)
+            except Exception as e:
+                print('An exception occurred in WindowManager.getLocation: ', e)
+                pass
+            
+        b = np.ones((height/20,width/20), dtype=np.float32)
+        loc_ok = (scipy.signal.convolve2d(usageMatrix, b, 'valid') == int(width/20)*int(height/20))
+        try:
+            new_loc = np.argwhere(loc_ok)[0]
+            return 20*new_loc[1], 20*new_loc[0]
+        except Exception as e:
+            print('An exception occurred in WindowManager.getLocation: ', e)
+            return 0,0
 
     def addWindow(self, w, passive=False):
         """Add a new window.
@@ -85,6 +108,7 @@ class WindowManager:
             x,y = self.getLocation(width, height)
             # place:
             w.geometry("%dx%d%+d%+d" % (width, height, x, y))
+            w.update_idletasks()
 
         # add to the internal list of managed windows:
         self.windows.append(w)

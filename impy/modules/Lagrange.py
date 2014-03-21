@@ -191,7 +191,8 @@ class Lagrange(Module, tk.Toplevel):
     def __getstate__(self):
         """Get the current state of this object as a `dict`"""
         state = self.__dict__.copy()
-        badKeys = ['wm','master','tk','_w','widgetName','plots','_tclCommands','_name','children','scalars']
+        badKeys = ['wm','master','tk','_w','widgetName','plots','_tclCommands','_name','children','scalars',
+                   'incrementVar', 'minRVar', 'maxRVar', 'minTVar', 'maxTVar', 'fuelShellVar']
 
         for key in badKeys:
             if key in state.keys():
@@ -247,6 +248,10 @@ class Lagrange(Module, tk.Toplevel):
 
     def __plot__(self, refresh=False, *args):
         """Helper function to generate plot of burn rate"""
+        # Check for a closed window:
+        if 'Lagrange' in self.plots.keys() and not matplotlib.pyplot.fignum_exists(self.plots['Lagrange'].number):
+            del self.plots['Lagrange']
+            refresh = False
         # Update the existing plot, if it exists
         refresh = refresh or 'Lagrange' in self.plots.keys()
         if refresh:

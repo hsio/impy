@@ -12,13 +12,15 @@ from impy.gui.widgets.Progress_Dialog import Progress_Dialog
 from impy.gui.widgets.Option_Prompt import Option_Prompt
 import matplotlib, matplotlib.pyplot
 
-from impy.util.ImplosionRunner import ImplosionRunner
-from impy.util.ModuleRunner import ModuleRunner
+from impy.util import ImplosionRunner
+from impy.util import ModuleRunner
 
 import impy.implosions
 import impy.modules
 from impy.implosions.Implosion import *
 from impy.modules.Module import *
+
+from multiprocessing import Process, Pipe, freeze_support
 
 # auto import implosions and modules:
 for importer, modname, ispkg in pkgutil.iter_modules(impy.implosions.__path__):
@@ -28,7 +30,7 @@ for importer, modname, ispkg in pkgutil.iter_modules(impy.modules.__path__):
     module = __import__('impy.modules.'+modname, fromlist="dummy")
     print("Imported module: ", module)
 
-class impy(tk.Tk):
+class impy(tk.Toplevel):
     """Post-processor for hydrodynamic simulation results."""
     __author__ = 'Alex Zylstra'
     __date__ = '2014-01-25'
@@ -73,6 +75,8 @@ class impy(tk.Tk):
         # File menu:
         fileMenu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label='File', menu=fileMenu)
+        helpMenu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label='Help', menu=helpMenu)
         self.config(menu=menubar)
 
         fileMenu.add_command(label='Open File\t\t' + shortcutType + 'O', command=self.openFile)
@@ -91,6 +95,9 @@ class impy(tk.Tk):
         fileMenu.add_command(label='Save plots', command= lambda: self.save('plots'))
         fileMenu.add_command(label='Quit\t\t\t' + shortcutType + 'Q', command=self.close)
         self.bind('<' + shortcutModifier + 'q>', self.close)
+
+        # Options in the help menu:
+        helpMenu.add_command(label='About', command=self.__about__),
 
         self.__configureMatplotlib__()
 
@@ -245,15 +252,17 @@ class impy(tk.Tk):
         if not os.path.dirname(dir):
             os.makedirs(dir)
 
+        # For saving plots, need to get the type:
+        if saveType == 'plots':
+            formats = ['']+list(matplotlib.pyplot.gcf().canvas.get_supported_filetypes().keys())
+            prompt = Option_Prompt(self, title='Plot format', options=formats)
+
         # Loop over modules and save their stuff if the checkbox is selected:
         for mod in self.modules.keys():
             if self.modControlVars[mod].get() == 1:
                 if saveType == 'plots':
-                    # For saving plots, need to get the type:
-                    formats = ['']+list(matplotlib.pyplot.gcf().canvas.get_supported_filetypes().keys())
-                    prompt = Option_Prompt(self, title='Plot format', options=formats)
-                    prefix = mod
                     if prompt.result is not None:
+                        prefix = mod
                         self.modules[mod].savePlots(dir, prefix, prompt.result)
                 else:
                     fname = os.path.join(dir, mod + '.' + saveType)
@@ -267,7 +276,49 @@ class impy(tk.Tk):
         dialog.update_idletasks()
 
         # Use helper function:
-        ImplosionRunner(self, self.imp, dialog)
+        parent_conn, child_conn = Pipe()
+        p = Process(target=ImplosionRunner.run, args=(child_conn,))
+        self.processes.append(p)
+
+        # start the process and send implosion:
+        p.start()
+        try:
+            parent_conn.send(self.imp)
+        except:
+            raise Exception('Implosion object passed to ImplosionRunner is not pickleable!')
+
+        obj = None
+        # Loop while the process is active:
+        def callback():
+            nonlocal dialog, p, parent_conn
+            if dialog.cancelled:
+                dialog.withdraw()
+                p.terminate()
+                return
+
+            # Try to receive from the Pipe:
+            if parent_conn.poll():
+                # Update the progress, or end otherwise:
+                obj = parent_conn.recv()
+                if isinstance(obj, Exception):
+                    from tkinter.messagebox import showerror
+                    showerror('Error!', 'A problem occurred generating the implosion (class '+self.imp.name()+')\n'+obj.__str__())
+                    dialog.withdraw()
+                    p.terminate()
+                    return
+                elif isinstance(obj, float):
+                    dialog.set(100*obj)
+                elif isinstance(obj, Implosion):
+                    # Pass info back to the main app:
+                    self.imp = obj
+                    self.after(10, self.__postImplosion__)
+                    dialog.withdraw()
+                    p.terminate()
+                    return
+
+            self.after(25, callback)
+
+        self.after(10, callback)
 
     def __postImplosion__(self):
         """Tasks to execute after the implosion is generated."""
@@ -280,16 +331,20 @@ class impy(tk.Tk):
             self.modRedisplay[key] = (self.modControlVars[key].get() == 1)
         for mod in allModules():
             if self.modRedisplay[mod.name()]:
-                self.__runModule__(mod)
+                self.__runModule__(mod.name())
 
     def __runModule__(self, modName):
         """Run a specified module.
 
         :param mod: The name of the module class to run
         """
+        mod = None
         for x in allModules():
             if x.name() == modName:
                 mod = x
+
+        if mod is None:
+            return
 
         # Check whether we are loading or unloading:
         if self.modControlVars[mod.name()].get() == 1:
@@ -303,7 +358,58 @@ class impy(tk.Tk):
             dialog.update_idletasks()
 
             # Run using helper function:
-            ModuleRunner(self, self.imp, self.modules[mod.name()], dialog)
+            parent_conn, child_conn = Pipe()
+
+            p = Process(target=ModuleRunner.run, args=(child_conn,))
+            self.processes.append(p)
+
+            p.start()
+            try:
+                parent_conn.send(self.modules[mod.name()])
+            except:
+                print(mod.__dict__)
+                raise Exception('Module object passed to ModuleRunner is not pickle-able!')
+
+            try:
+                parent_conn.send(self.imp)
+            except:
+                raise Exception('Implosion object passed to ModuleRunner is not pickle-able!')
+
+            obj = None
+            # Callpacks while the process is active:
+            def callback():
+                nonlocal p, dialog, parent_conn
+                if dialog.cancelled:
+                    p.terminate()
+                    dialog.withdraw()
+                    return
+
+                # Try to receive from the pipe:
+                if parent_conn.poll():
+                    # Update the progress, or end otherwise:
+                    obj = parent_conn.recv()
+                    if isinstance(obj, Exception):
+                        from tkinter.messagebox import showerror
+                        showerror('Error!', 'A problem occurred running '+mod.name()+'\n'+obj.__str__())
+                        # Uncheck from main window:
+                        self.modControlVars[mod.name()].set(0)
+                        dialog.withdraw()
+                        p.terminate()
+                        return
+                    elif isinstance(obj, float) or isinstance(obj, int):
+                        dialog.set(100*obj)
+                    elif isinstance(obj, Module):
+                        # Pass back to the main app:
+                        self.modules[mod.name()].copy(obj)
+                        self.after(10, lambda: self.__postModule__(obj))
+                        dialog.withdraw()
+                        p.terminate()
+                        return  # Callback loop breaks here
+
+                self.after(25, callback)  # loop
+
+            # Start callback loop in a bit:
+            self.after(10, callback)
 
         else:
             # If a module is unchecked, it is removed and deleted:
@@ -365,9 +471,18 @@ class impy(tk.Tk):
             from tkinter.messagebox import showinfo
             showinfo(title=title, message=text)
 
-def main():
-    app = impy()
-    app.mainloop()
+    def __about__(self):
+        from tkinter.messagebox import showinfo
+        title = 'impy'
+        text = 'Author: ' + self.__author__ + '\n'
+        text += 'Date: ' + self.__date__ + '\n'
+        text += 'Version: ' + self.__version__ + '\n'
+        showinfo(title=title, message=text)
+
 
 if __name__ == "__main__":
-    main()
+    freeze_support()
+    root = tk.Tk()
+    root.withdraw()
+    app = impy()
+    root.mainloop()

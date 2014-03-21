@@ -179,7 +179,9 @@ class Snapshot(Module, tk.Toplevel):
     def __getstate__(self):
         """Get the current state of this object as a `dict`"""
         state = self.__dict__.copy()
-        badKeys = ['wm','master','tk','_w','widgetName','plots','_tclCommands','_name','children','scalars']
+        badKeys = ['wm','master','tk','_w','widgetName','plots','_tclCommands','_name','children','scalars',
+                   'plotRhoVar', 'plotPressureVar', 'plotVelocityVar', 'plotneVar', 'plotniVar', 'plotTeVar', 'plotTiVar',
+                   'timeVar', 'logxVar', 'logyVar']
 
         for key in badKeys:
             if key in state.keys():
@@ -194,7 +196,7 @@ class Snapshot(Module, tk.Toplevel):
         plotLabel = ttk.Label(self, text='Plot Options')
         plotLabel.grid(row=1, column=0, columnspan=2, sticky='ns')
 
-        label1 = ttk.Label(self, text='rho')
+        label1 = ttk.Label(self, text='ρ')
         label1.grid(row=2, column=0)
         self.plotRhoVar = tk.BooleanVar(value=True)
         plotRhoCheck = ttk.Checkbutton(self, variable=self.plotRhoVar)
@@ -282,6 +284,10 @@ class Snapshot(Module, tk.Toplevel):
         if not self.plotRhoVar.get():
             return
 
+        # Check for a closed window:
+        if 'rho' in self.plots.keys() and not matplotlib.pyplot.fignum_exists(self.plots['rho'].number):
+            del self.plots['rho']
+            refresh = False
         # Update the existing plot, if it exists
         refresh = refresh or 'rho' in self.plots.keys()
         if refresh:
@@ -323,6 +329,10 @@ class Snapshot(Module, tk.Toplevel):
         if not self.plotPressureVar.get():
             return
 
+        # Check for a closed window:
+        if 'pressure' in self.plots.keys() and not matplotlib.pyplot.fignum_exists(self.plots['pressure'].number):
+            del self.plots['pressure']
+            refresh = False
         # Update the existing plot, if it exists
         refresh = refresh or 'pressure' in self.plots.keys()
         if refresh:
@@ -364,6 +374,10 @@ class Snapshot(Module, tk.Toplevel):
         if not self.plotVelocityVar.get():
             return
 
+        # Check for a closed window:
+        if 'u' in self.plots.keys() and not matplotlib.pyplot.fignum_exists(self.plots['u'].number):
+            del self.plots['u']
+            refresh = False
         # Update the existing plot, if it exists
         refresh = refresh or 'u' in self.plots.keys()
         if refresh:
@@ -405,6 +419,10 @@ class Snapshot(Module, tk.Toplevel):
         if not self.plotneVar.get() or not self.plotniVar.get():
             return
 
+        # Check for a closed window:
+        if 'n' in self.plots.keys() and not matplotlib.pyplot.fignum_exists(self.plots['n'].number):
+            del self.plots['n']
+            refresh = False
         # Update the existing plot, if it exists
         refresh = refresh or 'n' in self.plots.keys()
         if refresh:
@@ -450,6 +468,10 @@ class Snapshot(Module, tk.Toplevel):
         if not self.plotTeVar.get() or not self.plotTiVar.get():
             return
 
+        # Check for a closed window:
+        if 'T' in self.plots.keys() and not matplotlib.pyplot.fignum_exists(self.plots['T'].number):
+            del self.plots['T']
+            refresh = False
         # Update the existing plot, if it exists
         refresh = refresh or 'T' in self.plots.keys()
         if refresh:

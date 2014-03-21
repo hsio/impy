@@ -297,7 +297,12 @@ class Burn(Module, tk.Toplevel):
 
     def __burnRate__(self, refresh=False, *args):
         """Helper function to generate plot of burn rate"""
+        # Check for a closed window:
+        if 'burnRate' in self.plots.keys() and not matplotlib.pyplot.fignum_exists(self.plots['burnRate'].number):
+            del self.plots['burnRate']
+            refresh = False
         # Update the existing plot, if it exists
+        exists = ('burnRate' in self.plots.keys() and matplotlib.pyplot.fignum_exists(self.plots['burnRate'].number))
         refresh = refresh or 'burnRate' in self.plots.keys()
         if refresh:
             if 'burnRate' in self.plots.keys():
@@ -324,12 +329,18 @@ class Burn(Module, tk.Toplevel):
         if not refresh:
             if self.wm is not None:
                 self.wm.addWindow(matplotlib.pyplot.get_current_fig_manager().window)
+            # show the plot
             fig.show()
             fig.canvas.draw()
         self.plots['burnRate'] = fig
 
     def __burnRadius__(self, refresh=False, *args):
         """Helper function to generate plot of burn rate"""
+        # Check for a closed window:
+        if 'burnRadius' in self.plots.keys() and not matplotlib.pyplot.fignum_exists(self.plots['burnRadius'].number):
+            del self.plots['burnRadius']
+            refresh = False
+        # Redisplay if appropriate:
         refresh = refresh or 'burnRadius' in self.plots.keys()
         if refresh:
             if 'burnRadius' in self.plots.keys():
@@ -348,7 +359,7 @@ class Burn(Module, tk.Toplevel):
         for k in self.burnRadius.keys():
             ax.plot(self.burnRadiusBins[k], self.burnRadius[k], label=k)
             maxr = max(maxr, self.__r1__(k))
-        print(maxr)
+
         ax.set_xlim(0, maxr)
         ax.set_xlabel('Radius (um)', fontsize=12)
         ax.set_ylabel('Burn (1/um)', fontsize=12)
