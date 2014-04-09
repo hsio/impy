@@ -1,23 +1,11 @@
 __author__ = 'Alex Zylstra'
-__date__ = '2014-01-11'
+__date__ = '2014-03-26'
 __version__ = '1.0.0'
 
 import tkinter as tk
 import numpy as np
 import scipy, scipy.signal
 import re
-
-def __rectOverlap__(p1, p2, p3, p4):
-    """Detect overlap of two rectangles, specified by opposite corners.
-    Each argument must be a tuple containing (x,y).
-
-    :param p1: Upper-left corner of rectangle #1
-    :param p2: Lower-right corner of rectangle #1
-    :param p3: Upper-left corner of rectangle #2
-    :param p4: Lower-right corner of rectangle #2
-    :returns: True if the rectangles overlap
-    """
-    return not (p2[0] < p3[0] or p1[0] > p4[0] or p2[1] < p3[1] or p1[1] > p4[1])
 
 def parseGeometry(geometry):
     """Parse a tkinter geometry string.
@@ -37,7 +25,7 @@ class WindowManager:
     :param screenWidth: The width of the screen in pixels
     :param screenHeight: The height of the screen in pixels
     :author: Alex Zylstra
-    :date: 2014-01-11
+    :date: 2014-03-26
     """
     #: Step size in horizontal placement [pixels]
     dx = 10
@@ -112,32 +100,3 @@ class WindowManager:
 
         # add to the internal list of managed windows:
         self.windows.append(w)
-
-
-    def __conflict__(self, x, y, width, height):
-        """Detect a conflict between a specified rectangle and existing windows.
-        All units are in pixels.
-
-        :param x: x position of the window (NW corner)
-        :param y: y position of the window (NW corner)
-        :param width: width of the window
-        :param height: height of the window
-        :returns: True if a conflict exists, False otherwise
-        """
-        p3 = (x,y)
-        p4 = (x+width,y+height)
-        conflict = False
-        # have to loop over all current windows:
-        for w in self.windows:
-            # Wrap in try/except block in case windows are totally deleted
-            try:
-                assert isinstance(w, tk.Toplevel) or isinstance(w, tk.Tk)
-                if w.wm_state() == 'normal':
-                    g = parseGeometry(w.geometry())
-                    p1 = (g[2], g[3])
-                    p2 = (g[2]+g[0], g[3]+g[1])
-                    if __rectOverlap__(p1,p2,p3,p4):
-                        return True
-            except:
-                self.windows.remove(w)
-        return False

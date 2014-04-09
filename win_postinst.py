@@ -12,7 +12,7 @@ if sys.argv[1] == '-install':
         os.path.join(APP_FOLDER, 'impy.exe'), # program
         'Implosion post-processor', # description
         NAME, # filename
-        NIF_WRF.__file__, # parameters
+        impy.__file__, # parameters
         APP_FOLDER, # workdir
         os.path.join(APP_FOLDER, 'favicon.ico'), # iconpath
     )

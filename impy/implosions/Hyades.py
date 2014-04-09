@@ -527,7 +527,7 @@ class Hyades(Implosion):
         self.NumRegions = max(self.RegNums) # how many regions we have to deal with
 
         # Precompute the dt matrix:
-        self.dtRaw = np.ndarray(shape=(len(self.t_raw), len(self.r_raw)), dtype=np.float)
+        self.dtRaw = np.ndarray(shape=(len(self.t_raw), len(self.rcm2[0])), dtype=np.float)
         for i in range(len(self.dtRaw)):
             # edge case:
             if i >= self.it_max()-1:

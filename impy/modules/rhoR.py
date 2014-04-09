@@ -260,7 +260,7 @@ class RhoR(Module, tk.Toplevel):
 
         ax.set_xlabel('Time (ns)', fontsize=12)
         ax.set_ylabel('rhoR (mg/cm2)', fontsize=12)
-        ax.legend()
+        ax.legend(loc=2)
 
         matplotlib.pyplot.tight_layout()
 

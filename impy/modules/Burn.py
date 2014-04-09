@@ -116,7 +116,7 @@ class Burn(Module, tk.Toplevel):
                 self.bangTime[rxn.name()] = imp.t(itBT)*1e9  # also convert to ns
 
                 # Calculate burn versus radius
-                hist, bins = np.histogram(r.flatten(), bins=5000, weights=Y.flatten())
+                hist, bins = np.histogram(r.flatten(), bins=1000, weights=Y.flatten())
                 self.burnRadius[rxn.name()] = hist
                 dr = bins[1]-bins[0]
                 self.burnRadiusBins[rxn.name()] = (bins[:-1]+dr/2)*1e4  # convert to um
@@ -265,22 +265,39 @@ class Burn(Module, tk.Toplevel):
     def __createWidgets__(self):
         """Helper function which creates GUI elements."""
         scalarLabel = ttk.Label(self, text='Burn scalars')
-        scalarLabel.grid(row=0, column=0, columnspan=2)
+        scalarLabel.grid(row=0, column=0, columnspan=3)
 
         self.__scalarViewer__()
-        self.scalars.grid(row=1, column=0, columnspan=2, sticky='nsew')
+        self.scalars.grid(row=1, column=0, columnspan=3, sticky='nsew')
         self.scalars.pack_propagate(0)
         self.scalars.grid_propagate(0)
         self.scalars.configure(width=250, height=100)
 
-        plotLabel = ttk.Label(self, text='Plots')
-        plotLabel.grid(row=2, column=0, columnspan=2, sticky='ns')
+        plotLabel = ttk.Label(self, text='Plot Options')
+        plotLabel.grid(row=2, column=0, columnspan=3, sticky='ns')
+
+        logLabel = ttk.Label(self, text='Log scale')
+        logLabel.grid(row=3, column=0, sticky='ns')
+        self.logCheckVar = tk.BooleanVar()
+        self.logCheck = ttk.Checkbutton(self, variable=self.logCheckVar)
+        self.logCheck.grid(row=3, column=1)
+
+        timeLabel = ttk.Label(self, text='t (ns)')
+        timeLabel.grid(row=4, column=0)
+        self.minTime = tk.StringVar()
+        self.minTime.set('{:.1f}'.format(np.min(self.time)*1e9))
+        minTimeEntry = ttk.Entry(self, textvariable=self.minTime, width=6)
+        minTimeEntry.grid(row=4, column=1)
+        self.maxTime = tk.StringVar()
+        self.maxTime.set('{:.1f}'.format(np.max(self.time)*1e9))
+        maxTimeEntry = ttk.Entry(self, textvariable=self.maxTime, width=6)
+        maxTimeEntry.grid(row=4, column=2)
 
         burnRateButton = ttk.Button(self, text="Burn Rate", command=self.__burnRate__)
-        burnRateButton.grid(row=3, column=0)
+        burnRateButton.grid(row=5, column=0)
 
         burnRadiusButton = ttk.Button(self, text="Burn Radius", command=self.__burnRadius__)
-        burnRadiusButton.grid(row=3, column=1)
+        burnRadiusButton.grid(row=5, column=1)
 
     def __scalarViewer__(self, refresh=False, *args):
         """Helper function which is called to create the scalar viewer"""
@@ -317,12 +334,18 @@ class Burn(Module, tk.Toplevel):
             fig.canvas.set_window_title('Burn Rate')
         ax = fig.add_subplot(111)
 
+        maxVal = 0
         for k in self.burnRate.keys():
             ax.plot(self.time, self.burnRate[k], label=k)
+            maxVal = max(np.max(self.burnRate[k]), maxVal)
 
         ax.set_xlabel('Time (s)', fontsize=12)
         ax.set_ylabel('Burn Rate (1/s)', fontsize=12)
-        ax.legend()
+        ax.legend(loc=2)
+        if self.logCheckVar.get():
+            ax.set_yscale('log')
+            ax.set_ylim(1e-6*maxVal, 2*maxVal)
+        ax.set_xlim(1e-9*float(self.minTime.get()), 1e-9*float(self.maxTime.get()))
 
         matplotlib.pyplot.tight_layout()
 
@@ -364,6 +387,8 @@ class Burn(Module, tk.Toplevel):
         ax.set_xlabel('Radius (um)', fontsize=12)
         ax.set_ylabel('Burn (1/um)', fontsize=12)
         ax.legend()
+        if self.logCheckVar.get():
+            ax.set_yscale('log')
 
         matplotlib.pyplot.tight_layout()
 
