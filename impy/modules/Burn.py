@@ -251,12 +251,13 @@ class Burn(Module, tk.Toplevel):
     # ----------------------------------------
     def __getstate__(self):
         """Get the current state of this object as a `dict`"""
-        state = self.__dict__.copy()
-        badKeys = ['wm','master','tk','_w','widgetName','plots','_tclCommands','_name','children','scalars']
+        state = dict()
+        goodKeys = ['time' , 'Y', 'Ti','burnRate', 'bangTime', 'burnRadius', 'burnRadiusBins']
 
-        for key in badKeys:
-            if key in state.keys():
-                del state[key]
+        for key in goodKeys:
+            if key in self.__dict__.keys():
+                state[key] = self.__dict__[key]
+
         return state
 
     # ----------------------------------------
