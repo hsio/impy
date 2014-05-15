@@ -2,7 +2,6 @@
 import platform
 import os
 import pkgutil
-from threading import Thread
 
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -20,7 +19,7 @@ import impy.modules
 from impy.implosions.Implosion import *
 from impy.modules.Module import *
 
-from multiprocessing import Process, Pipe, freeze_support
+import multiprocessing
 
 # auto import implosions and modules:
 for importer, modname, ispkg in pkgutil.iter_modules(impy.implosions.__path__):
@@ -29,6 +28,7 @@ for importer, modname, ispkg in pkgutil.iter_modules(impy.implosions.__path__):
 for importer, modname, ispkg in pkgutil.iter_modules(impy.modules.__path__):
     module = __import__('impy.modules.'+modname, fromlist="dummy")
     print("Imported module: ", module)
+
 
 class impy(tk.Toplevel):
     """Post-processor for hydrodynamic simulation results."""
@@ -276,8 +276,8 @@ class impy(tk.Toplevel):
         dialog.update_idletasks()
 
         # Use helper function:
-        parent_conn, child_conn = Pipe()
-        p = Process(target=ImplosionRunner.run, args=(child_conn,))
+        parent_conn, child_conn = multiprocessing.Pipe()
+        p = multiprocessing.Process(target=ImplosionRunner.run, args=(child_conn,))
         self.processes.append(p)
 
         # start the process and send implosion:
@@ -358,9 +358,9 @@ class impy(tk.Toplevel):
             dialog.update_idletasks()
 
             # Run using helper function:
-            parent_conn, child_conn = Pipe()
+            parent_conn, child_conn = multiprocessing.Pipe()
 
-            p = Process(target=ModuleRunner.run, args=(child_conn,))
+            p = multiprocessing.Process(target=ModuleRunner.run, args=(child_conn,))
             self.processes.append(p)
 
             p.start()
@@ -481,7 +481,7 @@ class impy(tk.Toplevel):
 
 
 if __name__ == "__main__":
-    freeze_support()
+    multiprocessing.freeze_support()
     root = tk.Tk()
     root.withdraw()
     app = impy()

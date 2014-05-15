@@ -6,6 +6,7 @@ from impy.resources.fusion import *
 import tkinter as tk
 import tkinter.ttk as ttk
 import matplotlib, matplotlib.pyplot
+import math
 
 
 class Snapshot(Module, tk.Toplevel):
@@ -215,60 +216,60 @@ class Snapshot(Module, tk.Toplevel):
         plotVelocityCheck.grid(row=4, column=1)
 
         label4 = ttk.Label(self, text='ne')
-        label4.grid(row=4, column=0)
+        label4.grid(row=5, column=0)
         self.plotneVar = tk.BooleanVar(value=True)
         plotneCheck = ttk.Checkbutton(self, variable=self.plotneVar)
-        plotneCheck.grid(row=4, column=1)
+        plotneCheck.grid(row=5, column=1)
 
         label5 = ttk.Label(self, text='ni')
-        label5.grid(row=5, column=0)
+        label5.grid(row=6, column=0)
         self.plotniVar = tk.BooleanVar(value=True)
         plotniCheck = ttk.Checkbutton(self, variable=self.plotniVar)
-        plotniCheck.grid(row=5, column=1)
+        plotniCheck.grid(row=6, column=1)
 
         label6 = ttk.Label(self, text='Te')
-        label6.grid(row=6, column=0)
+        label6.grid(row=7, column=0)
         self.plotTeVar = tk.BooleanVar(value=True)
         plotTeCheck = ttk.Checkbutton(self, variable=self.plotTeVar)
-        plotTeCheck.grid(row=6, column=1)
+        plotTeCheck.grid(row=7, column=1)
 
         label7 = ttk.Label(self, text='Ti')
-        label7.grid(row=7, column=0)
+        label7.grid(row=8, column=0)
         self.plotTiVar = tk.BooleanVar(value=True)
         plotTiCheck = ttk.Checkbutton(self, variable=self.plotTiVar)
-        plotTiCheck.grid(row=7, column=1)
+        plotTiCheck.grid(row=8, column=1)
 
         label8 = ttk.Label(self, text='t (ns)')
-        label8.grid(row=8, column=0)
+        label8.grid(row=9, column=0)
         self.timeVar = tk.StringVar(value=0)
         timeEntry = ttk.Entry(self, textvariable=self.timeVar, width=8)
-        timeEntry.grid(row=8, column=1)
+        timeEntry.grid(row=9, column=1)
 
         split1 = ttk.Separator(self)
-        split1.grid(row=9, column=0, columnspan=2, sticky='nsew')
+        split1.grid(row=10, column=0, columnspan=2, sticky='nsew')
 
         label9 = ttk.Label(self, text='Log x')
-        label9.grid(row=10, column=0)
+        label9.grid(row=11, column=0)
         self.logxVar = tk.BooleanVar(value=False)
         logxCheck = ttk.Checkbutton(self, variable=self.logxVar)
-        logxCheck.grid(row=10, column=1)
+        logxCheck.grid(row=11, column=1)
 
         label9 = ttk.Label(self, text='Log y')
-        label9.grid(row=11, column=0)
+        label9.grid(row=12, column=0)
         self.logyVar = tk.BooleanVar(value=False)
         logyCheck = ttk.Checkbutton(self, variable=self.logyVar)
-        logyCheck.grid(row=11, column=1)
+        logyCheck.grid(row=12, column=1)
 
         split2 = ttk.Separator(self)
-        split2.grid(row=12, column=0, columnspan=2, sticky='nsew')
+        split2.grid(row=13, column=0, columnspan=2, sticky='nsew')
 
         burnRateButton = ttk.Button(self, text='Plot', command=self.__plot__)
-        burnRateButton.grid(row=13, column=0, columnspan=2)
+        burnRateButton.grid(row=14, column=0, columnspan=2)
 
     def __plot__(self, refresh=False, *args):
         # Set up time and spatial steps:
         dt = self.imp.dt(0)
-        self.it = int(self.imp.it_min() + ( float(self.timeVar.get())*1e-9 - self.imp.t(self.imp.it_min())) / dt)
+        self.it = self.imp.it_min() + math.ceil(( float(self.timeVar.get())*1e-9 - self.imp.t(self.imp.it_min())) / dt)
         self.ir = (self.imp.ir_min(), self.imp.ir_max())
 
         # call all plot functions:

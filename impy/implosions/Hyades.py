@@ -261,10 +261,7 @@ class Hyades(Implosion):
         if np.isscalar(it) and np.isscalar(ir):
             return self.rho(it,ir)*(self.r_raw[it][ir+1]-self.r_raw[it][ir])
 
-        ret = np.ndarray((it[1]-it[0],ir[1]-ir[0]), dtype=np.float)
-        for i in np.arange(it[0], it[1], 1):
-            for j in np.arange(ir[0], ir[1], 1):
-                ret[i-it[0]][j-ir[0]] = self.rho(i,j)*(self.r_raw[i][j+1]-self.r_raw[i][j])
+        ret = self.rho(it, (ir[0],ir[1]-1)) * np.diff(self.r(it,ir), n=1)
         return ret
 
     # ----------------------------------------
@@ -484,43 +481,43 @@ class Hyades(Implosion):
         self.runProgress += 0.05
 
         # raw hydro info
-        self.t_raw = np.asarray( file.variables['DumpTimes'][:] )
+        self.t_raw = np.copy( file.variables['DumpTimes'][:] )
         self.runProgress += 0.05
-        self.r_raw = np.asarray( file.variables['R'][:] )
+        self.r_raw = np.copy( file.variables['R'][:] )
         self.runProgress += 0.05
-        self.rcm = np.asarray( file.variables['Rcm'][:] )
+        self.rcm = np.copy( file.variables['Rcm'][:] )
         self.runProgress += 0.05
 
         # fix weirdness with rcm
         temp = []
         for i in range(len(self.rcm)):
             temp.append( self.rcm[i][1:len(self.rcm[i])-1] )
-        self.rcm2 = np.asarray( temp )
+        self.rcm2 = np.copy( temp )
         self.runProgress += 0.05
 
-        self.TiRaw = np.asarray( file.variables['Ti'][:] )
+        self.TiRaw = np.copy( file.variables['Ti'][:] )
         self.runProgress += 0.05
-        self.TeRaw = np.asarray( file.variables['Te'][:] )
+        self.TeRaw = np.copy( file.variables['Te'][:] )
         self.runProgress += 0.05
-        self.niRaw = np.asarray( file.variables['Deni'][:] )
+        self.niRaw = np.copy( file.variables['Deni'][:] )
         self.runProgress += 0.05
-        self.neRaw = np.asarray( file.variables['Dene'][:] )
+        self.neRaw = np.copy( file.variables['Dene'][:] )
         self.runProgress += 0.05
-        self.uRaw = np.asarray( file.variables['Ucm'][:] )
+        self.uRaw = np.copy( file.variables['Ucm'][:] )
         self.runProgress += 0.05
-        self.VolRaw = np.asarray( file.variables['Vol'][:] )
+        self.VolRaw = np.copy( file.variables['Vol'][:] )
         self.runProgress += 0.05
 
         # raw material info
-        self.RegNums = np.asarray( file.variables['RegNums'][:] )
+        self.RegNums = np.copy( file.variables['RegNums'][:] )
         self.runProgress += 0.05
-        self.NumMatsReg = np.asarray( file.variables['NumMatsReg'][:] )
+        self.NumMatsReg = np.copy( file.variables['NumMatsReg'][:] )
         self.runProgress += 0.05
-        self.AtmFrc = np.asarray( file.variables['AtmFrc'][:] )
+        self.AtmFrc = np.copy( file.variables['AtmFrc'][:] )
         self.runProgress += 0.05
-        self.AtmNum = np.asarray( file.variables['AtmNum'][:] )
+        self.AtmNum = np.copy( file.variables['AtmNum'][:] )
         self.runProgress += 0.05
-        self.AtmWgt = np.asarray( file.variables['AtmWgt'][:] )
+        self.AtmWgt = np.copy( file.variables['AtmWgt'][:] )
         self.runProgress += 0.05
 
         # Work on material definitions

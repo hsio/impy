@@ -1,6 +1,5 @@
 __author__ = 'Alex Zylstra'
 
-from multiprocessing import Process, Pipe
 from threading import Thread, Lock
 import time
 from impy.implosions.Implosion import Implosion
