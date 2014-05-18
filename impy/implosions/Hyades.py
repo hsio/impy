@@ -73,6 +73,7 @@ class Hyades(Implosion):
     def __init__(self, type='GUI', args='', wm=None):
         """Construct a new implosion."""
         super(Hyades, self).__init__()
+        self.__ready__ = False
 
         # Get file to open based on type:
         if type is 'GUI':
@@ -98,6 +99,7 @@ class Hyades(Implosion):
         # Set a few instance variables:
         self.filename = filename
         self.runProgress = 0.
+        self.__ready__ = True
 
     @classmethod
     def getFileTypes(cls):
@@ -117,6 +119,10 @@ class Hyades(Implosion):
         """Get a string of information about this specific implosion."""
         #TODO: implement more interesting info
         return 'HYADES file: ' + self.filename
+
+    def ready(self):
+        """Returns true if implosion object creation went OK and this object is ready for `generate` to be called."""
+        return self.__ready__
 
     def generate(self):
         """Run the calculation to generate the implosion data."""
@@ -461,8 +467,8 @@ class Hyades(Implosion):
             Zzone = self.IonZ(it, ir)
             for i in range(len(Azone)):
                 if A == Azone[i] and Z == Zzone[i]:
-                    return True
-            return False
+                    return self.IonF(it,ir)[i]
+            return 0.
 
         # Truth values, for if a given entry corresponds to the ion we want
         shape = (it[1]-it[0], ir[1]-ir[0], len(self.IonARaw[0][0]))

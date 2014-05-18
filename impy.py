@@ -87,7 +87,7 @@ class impy(tk.Toplevel):
 
         # Auto generate creation options for each implosion type:
         for impType in allImplosions():
-            createMenu.add_command(label='Create ' + impType.name(), command= lambda: self.open(impType.name()))
+            createMenu.add_command(label='Create ' + impType.name(), command= lambda a=impType.name(): self.open(a))
 
         fileMenu.add_command(label='Save\t\t\t' + shortcutType + 'S', command= lambda: self.save('CSV'))
         self.bind('<' + shortcutModifier + 's>', lambda *args: self.save('CSV'))
@@ -224,12 +224,16 @@ class impy(tk.Toplevel):
 
         :param type: A string containing the name of the implosion class.
         """
+        print('Creating '+type)
         # Make the correct type:
         for impType in allImplosions():
             if impType.name() == type:
                 self.impType = impType.name()
                 self.imp = impType(type='GUI')
                 break
+
+        if not self.imp.ready():
+            return
 
         self.typeLabelVar.set(self.impType)
         try:

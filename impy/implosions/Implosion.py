@@ -102,6 +102,11 @@ class Implosion(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def ready(self):
+        """Returns true if implosion object creation went OK and this object is ready for `generate` to be called."""
+        pass
+
+    @abstractmethod
     def generate(self):
         """Run the calculation to generate the implosion data."""
         pass
@@ -450,7 +455,7 @@ class Implosion(metaclass=ABCMeta):
             self.__calcYield__(rxn)
 
         if np.isscalar(it) and np.isscalar(ir):
-            return self.yieldData[it,ir]
+            return self.yieldData[rxn.name()][it,ir]
         return self.yieldData[rxn.name()][it[0]:it[1], ir[0]:ir[1]]
 
     def __calcYield__(self, rxn):
