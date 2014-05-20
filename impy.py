@@ -33,8 +33,8 @@ for importer, modname, ispkg in pkgutil.iter_modules(impy.modules.__path__):
 class impy(tk.Toplevel):
     """Post-processor for hydrodynamic simulation results."""
     __author__ = 'Alex Zylstra'
-    __date__ = '2014-01-25'
-    __version__ = '1.0.0'
+    __date__ = '2014-05-15'
+    __version__ = '0.2.0'
 
     def __init__(self):
         super(impy, self).__init__(None)
@@ -47,8 +47,11 @@ class impy(tk.Toplevel):
         self.processes = []
         self.windows = []
         self.__createWidgets__()
-        self.minsize(200,200)
+        self.minsize(300,200)
         self.title('impy')
+        s = ttk.Style()
+        s.configure('.', background='#eeeeee')
+        s.configure('.', font=('Helvetica', 14))
 
         self.wm = WindowManager(self.winfo_screenwidth(), self.winfo_screenheight())
         self.wm.addWindow(self)

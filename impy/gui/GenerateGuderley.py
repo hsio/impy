@@ -9,8 +9,8 @@ class Generate_Guderley(tk.Toplevel):
     :date: 2014-05-15
     """
     __author__ = 'Alex Zylstra'
-    __date__ = '2014-05-55'
-    __version__ = '1.0.0'
+    __date__ = '2014-05-15'
+    __version__ = '0.2.0'
 
     def __init__(self, parent, title='Configure Guderley'):
         """Initialize the dialog window"""

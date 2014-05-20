@@ -1,13 +1,14 @@
 
 from impy.implosions.Implosion import Implosion
 import os
+import csv
 import scipy
 import scipy.io
 import numpy as np
 from impy.resources import fusion
 from impy.resources import constants
 
-class Hyades(Implosion):
+class LILAC(Implosion):
     """Python-based abstract representation of an implosion. All implosion types must implement these methods.
     Each implosion must support a few options for constructing.
 
@@ -61,10 +62,8 @@ class Hyades(Implosion):
     a scalar or a 2-D :py:class:`numpy.ndarray` (respectively).
 
     :author: Alex Zylstra
-    :date: 2014-01-23
     """
     __author__ = 'Alex Zylstra'
-    __date__ = '2014-01-23'
     __version__ = '1.0.0'
 
     # ----------------------------------------
@@ -72,29 +71,29 @@ class Hyades(Implosion):
     # ----------------------------------------
     def __init__(self, type='GUI', args='', wm=None):
         """Construct a new implosion."""
-        super(Hyades, self).__init__()
+        super(LILAC, self).__init__()
         self.__ready__ = False
 
         # Get file to open based on type:
         if type is 'GUI':
             from tkinter.filedialog import askopenfilename
-            FILEOPENOPTIONS = dict(defaultextension='.nc',
-                           filetypes=[('Hyades netCDF','*.nc')],
+            FILEOPENOPTIONS = dict(defaultextension='.lilac',
+                           filetypes=[('Old LILAC','*.lilac')],
                            multiple=False)
             filename = askopenfilename(**FILEOPENOPTIONS)
         elif type is 'File':
             filename = args
         elif type is 'CLI':
             # TODO: CLI args
-            filename = input("HYADES file: ")
+            filename = input("LILAC file: ")
         else:
-            raise ValueError('Type passed to Hyades constructor is invalid: ' + type)
+            raise ValueError('Type passed to LILAC constructor is invalid: ' + type)
 
         # Check that file exists, and that extension is correct:
         if not os.path.isfile(filename):
-            raise FileNotFoundError('Could not find HYADES file: ' + filename)
-        if not filename[-3:] == '.nc':
-            raise FileNotFoundError('Invalid file type in HYADES: ' + filename)
+            raise FileNotFoundError('Could not find LILAC file: ' + filename)
+        if not filename[-6:] == '.lilac':
+            raise FileNotFoundError('Invalid file type in LILAC: ' + filename)
 
         # Set a few instance variables:
         self.filename = filename
@@ -108,17 +107,17 @@ class Hyades(Implosion):
 
             [('description', '*.ext')]
         """
-        return [('Hyades netCDF','*.nc')]
+        return [('Old LILAC','*.lilac')]
 
     @classmethod
     def name(cls):
         """Get a string containing a name for this type of implosion."""
-        return 'HYADES'
+        return 'LILAC'
 
     def info(self):
         """Get a string of information about this specific implosion."""
         #TODO: implement more interesting info
-        return 'HYADES file: ' + self.filename
+        return 'LILAC file: ' + self.filename
 
     def ready(self):
         """Returns true if implosion object creation went OK and this object is ready for `generate` to be called."""
@@ -128,13 +127,7 @@ class Hyades(Implosion):
         """Run the calculation to generate the implosion data."""
         # Top level construction, uses several helper functions:
         self.runProgress = 0.
-        self.__readHYADES__()
-        self.__precompute_ions__()
-        self.runProgress += 0.05
-        self.__rRegionInit__()
-        self.runProgress += 0.05
-        self.__find_tc__()
-        self.runProgress += 0.05
+        self.__readLILAC__()
 
     def progress(self):
         """Get the implosion generation's progress estimate.
@@ -169,8 +162,8 @@ class Hyades(Implosion):
         it, ir = self.__internalIndex__(it, ir)
 
         if np.isscalar(it) and np.isscalar(ir):
-            return self.neRaw[it][ir]
-        return self.neRaw[it[0]:it[1], ir[0]:ir[1]]
+            return self.niRaw[it][ir] * self.IonZbarRaw[it][ir]
+        return self.niRaw[it[0]:it[1], ir[0]:ir[1]] * self.IonZbarRaw[it[0]:it[1], ir[0]:ir[1]]
 
     def Ti(self, it, ir):
         """Ion temperature.
@@ -377,10 +370,10 @@ class Hyades(Implosion):
 
         # Handle scalar arguments:
         if np.isscalar(it) and np.isscalar(ir):
-            return self.rcm2[it][ir]
+            return self.r_raw[it][ir]
 
         # Handle ranges:
-        return self.rcm2[it[0]:it[1], ir[0]:ir[1]]
+        return self.r_raw[it[0]:it[1], ir[0]:ir[1]]
 
     # ----------------------------------------
     #           Material info
@@ -481,84 +474,225 @@ class Hyades(Implosion):
     # ----------------------------------------
     #           Helper functions
     # ----------------------------------------
-    def __readHYADES__(self):
+    def __readLILAC__(self):
         """Read hydro data from the file."""
-        file = scipy.io.netcdf.netcdf_file(self.filename, 'r')
-        self.runProgress += 0.05
-
-        # raw hydro info
-        self.t_raw = np.copy( file.variables['DumpTimes'][:] )
-        self.runProgress += 0.05
-        self.r_raw = np.copy( file.variables['R'][:] )
-        self.runProgress += 0.05
-        self.rcm = np.copy( file.variables['Rcm'][:] )
-        self.runProgress += 0.05
-
-        # fix weirdness with rcm
-        temp = []
-        for i in range(len(self.rcm)):
-            temp.append( self.rcm[i][1:len(self.rcm[i])-1] )
-        self.rcm2 = np.copy( temp )
-        self.runProgress += 0.05
-
-        self.TiRaw = np.copy( file.variables['Ti'][:] )
-        self.runProgress += 0.05
-        self.TeRaw = np.copy( file.variables['Te'][:] )
-        self.runProgress += 0.05
-        self.niRaw = np.copy( file.variables['Deni'][:] )
-        self.runProgress += 0.05
-        self.neRaw = np.copy( file.variables['Dene'][:] )
-        self.runProgress += 0.05
-        self.uRaw = np.copy( file.variables['Ucm'][:] )
-        self.runProgress += 0.05
-        self.VolRaw = np.copy( file.variables['Vol'][:] )
-        self.runProgress += 0.05
-
-        # raw material info
-        self.RegNums = np.copy( file.variables['RegNums'][:] )
-        self.runProgress += 0.05
-        self.NumMatsReg = np.copy( file.variables['NumMatsReg'][:] )
-        self.runProgress += 0.05
-        self.AtmFrc = np.copy( file.variables['AtmFrc'][:] )
-        self.runProgress += 0.05
-        self.AtmNum = np.copy( file.variables['AtmNum'][:] )
-        self.runProgress += 0.05
-        self.AtmWgt = np.copy( file.variables['AtmWgt'][:] )
-        self.runProgress += 0.05
-
-        # Work on material definitions
-        self.NumRegions = max(self.RegNums) # how many regions we have to deal with
-
-        # Precompute the dt matrix:
-        self.dtRaw = np.ndarray(shape=(len(self.t_raw), len(self.rcm2[0])), dtype=np.float)
-        for i in range(len(self.dtRaw)):
-            # edge case:
-            if i >= self.it_max()-1:
-                self.dtRaw[i, self.ir_min():self.ir_max()] = self.t_raw[self.it_max()-1] - self.t_raw[self.it_max()-2]
-            else:
-                self.dtRaw[i, self.ir_min():self.ir_max()] = self.t_raw[i+1] - self.t_raw[i]
-
-        self.runProgress += 0.05
-        file.close()
-
-    def __rRegionInit__(self):
-        """Helper function to do initial region boundary position identification."""
-        ZoneBoundaries = []
-        for ir in range(1,self.NumRegions+1):
-            iz = 0
-            while iz < len(self.RegNums) and self.RegNums[iz] <= ir:
-                iz += 1
-            #subtract 2 b/c RegNums has 0s at start and end, 1 more for while loop overshoot
-            ZoneBoundaries.append(iz-3)
-
+        # initialize a few lists for figuring out the material regions:
+        self.NumRegions = 0
+        self.Regions = []
+        self.rRegionMax = []
         self.rRegionInt = []
-        for iz in ZoneBoundaries:
-            temp = []
-            #populate lists from 2D data
-            for i in range(len(self.t_raw)):
-                temp.append( self.rcm2[i][iz] )
-            self.rRegionInt.append( temp )
 
+        self.region_A = []
+        self.region_Z = []
+        self.region_F = []
+        self.region_Aavg = []
+        self.region_Zavg = []
+
+        with open(self.filename, 'r') as file:
+            #read in the name
+            self.sim_name = file.readline()
+            #convert from Dy/cm2 to GBar
+            PUnitConv = 1e-15
+            #convert from eV to keV
+            TUnitConv = 1e-3
+
+            # Read in the fuel region info
+            dataReader = csv.reader(file , delimiter=' ')
+            line = self.cleanRead(dataReader)
+            while line[0].isdigit():
+                #add to regions
+                self.Regions.append( [int(line[len(line)-2]), int(line[len(line)-1]) ] ) #region boundaries
+                # update materials
+                self.MatIdent(line[1])
+                self.NumRegions += 1
+                line = self.cleanRead(dataReader)
+
+            #Read in the header until we get to the start of the data
+            #switch to comma delimited
+            dataReader = csv.reader(file , delimiter=',')
+            prevLine = line
+            while not 'time' in line[0]:
+                prevLine = line
+                line = self.cleanRead(dataReader)
+            header = prevLine
+            #iterate through header, identify columns that we want
+            for i in range( len(header) ):
+                if "Distance" in header[i]:
+                    rIndex = i
+                if ("Ion" or "ion") in header[i] and "eV" in header[i]:
+                    TiIndex = i
+                if ("Ion" or "ion") in header[i] and "Density" in header[i]:
+                    niIndex = i
+                if ("elec" or "Elec") in header[i] and "eV" in header[i]:
+                    TeIndex = i
+                if "Velocity" in header[i]:
+                    uIndex = i
+                if "Pressure" in header[i]:
+                    PIndex = i
+
+            # 2-D arrays for the actual data
+            self.r_raw = []
+            self.t_raw = []
+            self.TiRaw = []
+            self.TeRaw = []
+            self.niRaw = []
+            self.uRaw = []
+            self.PRaw = []
+
+            #Read in the actual data
+            dataReader = csv.reader(file , delimiter=' ')
+            #first time snap was previously read
+            line = [ "time=" , line[0].split(' ')[1] ]
+            while len(line) > 0 and 'time=' in line[0]:
+                #read in one time snapshot:
+                t = float( line[1] )
+                # for some reason LILAC spits out double sometimes (le sigh)
+                if len(self.t_raw) == 0 or t != self.t_raw[-1]:
+                    self.t_raw.append( t )
+
+                    self.r_raw.append( [] )
+                    self.TiRaw.append( [] )
+                    self.TeRaw.append( [] )
+                    self.niRaw.append( [] )
+                    self.uRaw.append( [] )
+                    self.PRaw.append( [] )
+                    line = self.cleanRead(dataReader)
+                    zone = 0
+                    while len(line) > 0 and line[0][0].isdigit():
+                        r = float( line[rIndex] ) #radius
+                        self.r_raw[-1].append(r)
+                        # read in all variables of interest
+                        self.TiRaw[-1].append(float( line[TiIndex] )*TUnitConv)
+                        self.TeRaw[-1].append(float( line[TeIndex] )*TUnitConv)
+                        self.niRaw[-1].append(float( line[niIndex] ))
+                        self.uRaw[-1].append(float( line[uIndex] ))
+                        self.PRaw[-1].append(float( line[PIndex] )*PUnitConv)
+                        line = self.cleanRead(dataReader)
+                        zone += 1
+                else:  # need to discard this output
+                    line = self.cleanRead(dataReader)
+                    while len(line) > 0 and line[0][0].isdigit():
+                        line = self.cleanRead(dataReader)
+
+            # Convert data to ndarray
+            self.r_raw = np.asarray(self.r_raw)
+            self.t_raw = np.asarray(self.t_raw)
+            self.TiRaw = np.asarray(self.TiRaw)
+            self.TeRaw = np.asarray(self.TeRaw)
+            self.niRaw = np.asarray(self.niRaw)
+            self.uRaw = np.asarray(self.uRaw)
+            self.PRaw = np.asarray(self.PRaw)
+
+            # need to convert t to ns:
+            self.t_raw = self.t_raw * 1e-9
+
+            # Precompute volume of each zone
+            self.VolRaw = np.zeros_like(self.TiRaw)
+            # First zone's volume is spherical:
+            self.VolRaw[:,0] = (4*np.pi/3) * np.power(self.r_raw[:,0], 3)
+            # subsequent zones are a difference in spherical volume
+            self.VolRaw[:,1:] = (4*np.pi/3) * np.diff(np.power(self.r_raw, 3))
+
+            # Precompute time difference
+            self.dtRaw = np.zeros_like(self.r_raw)
+            # Most of this can be computed directly with diff:
+            self.dtRaw[0:-1,:] = np.outer(np.diff(self.t_raw), np.ones(self.r_raw.shape[1]))
+            # last element set manually
+            self.dtRaw[-1,:] = self.t_raw[-1] - self.t_raw[-2]
+
+            # Populate arrays for the material info in each zone/time
+            # First, need to know the max # of ions in any zone
+            maxIons = 0
+            for i in range(len(self.region_A)):
+                maxIons = max(len(self.region_A[i]), maxIons)
+            shape = (len(self.t_raw), len(self.r_raw[0]), maxIons)  # shape for the material arrays
+            self.IonARaw = np.zeros(shape, dtype=np.float)
+            self.IonZRaw = np.zeros(shape, dtype=np.float)
+            self.IonFRaw = np.zeros(shape, dtype=np.float)
+            # Create 2-D arrays for averages (Abar and Zbar):
+            shape = (len(self.t_raw), len(self.r_raw[0]))
+            self.IonAbarRaw = np.zeros(shape, dtype=np.float)
+            self.IonZbarRaw = np.zeros(shape, dtype=np.float)
+
+            # populate the arrays just created
+            # Do this by looping over regions. Each region defines material for set of zones for all time
+            for i in range(len(self.Regions)):
+                ir0 = self.Regions[i][0]
+                ir1 = self.Regions[i][1]+1  # specified as inclusive limits by LILAC
+                self.IonARaw[:,ir0:ir1] = self.region_A[i]
+                self.IonZRaw[:,ir0:ir1] = self.region_Z[i]
+                self.IonFRaw[:,ir0:ir1] = self.region_F[i]
+                self.IonAbarRaw[:,ir0:ir1] = self.region_Aavg[i]
+                self.IonZbarRaw[:,ir0:ir1] = self.region_Zavg[i]
+
+        self.__find_scales__()
+
+    def cleanRead(self, dataReader):
+        """Helper function, reads a line and removes empty elements."""
+        line = next(dataReader)
+        while line.count('') > 0:
+            line.remove('')
+        while line.count(' ') > 0:
+            line.remove(' ')
+        while line.count(' ') > 0:
+            line.remove(' ')
+        return line
+
+    def MatIdent(self, Num):
+        """Read in LILAC material definitions from CSV file, looking for ID # Num."""
+        from pkg_resources import resource_filename, resource_stream
+        MatFile = open(resource_filename('impy.implosions','LILAC_Materials.csv'), 'r')
+        #MatFile = resource_stream('impy.implosions', 'LILAC_Materials.csv')
+
+        # import pkgutil
+        # MatFile = pkgutil.get_data('impy.implosions', 'LILAC_Materials.csv')
+        # import io
+        # MatFile = io.StringIO(MatFile)
+        # TODO: data file input needs to be robust
+
+        #if not MatFile.readable(): #Sanity check
+        #    print("Error reading LILAC material file!")
+        #    return
+        # TODO: better material error handling
+        data = MatFile.readline() #discard header
+        dataReader = csv.reader(MatFile , delimiter=',')
+
+        A = []
+        Z = []
+        F = []
+        Abar = 0
+        Zbar = 0
+        for row in dataReader:
+            # found row corresponding to this material:
+            if int(row[0]) == int(Num):
+                Abar = float(row[1])
+                Zbar = float(row[2])
+                # number of ions:
+                n = (len(row) - 3)/3
+                A = np.ndarray(n, dtype=np.float)
+                Z = np.ndarray(n, dtype=np.float)
+                F = np.ndarray(n, dtype=np.float)
+
+                # add each individual ion to the arrays:
+                for i in range(int(n)):
+                    A[i] = float(row[3*(1+i)])
+                    Z[i] = float(row[3*(1+i)+1])
+                    F[i] = float(row[3*(1+i)+2])
+
+                break
+
+        #sanity check
+        if Abar == 0 or Zbar == 0:
+            print("ERROR: material not found!")
+
+        self.region_A.append(A)
+        self.region_Z.append(Z)
+        self.region_F.append(F)
+        self.region_Aavg.append(Abar)
+        self.region_Zavg.append(Zbar)
+
+    def __find_scales__(self):
+        """Find radial and time scales in the problem."""
         # find where the fuel is in the problem:
         iFuel = 0
         for j in range(self.ir_max()): #find out how many regions actually contain stuff
@@ -566,16 +700,6 @@ class Hyades(Implosion):
                 iFuel = max(iFuel, j)
         self.iFuel = iFuel
 
-    def __rRegion__(self, it, ir):
-        """Region boundary position at time index it. Returns r in cm."""
-        return self.rRegionInt[ir][it]
-
-    def __RegionIdent__(self, ir):
-        """For radial index ir, returns material region number."""
-        return self.RegNums[ir]
-
-    def __find_tc__(self):
-        """Find the critical timescales in the problem"""
         # Find shock coalescence time by somewhat crude method:
         tc = self.t_raw[0]
         prevTi = self.Ti(0, 0)
@@ -594,7 +718,7 @@ class Hyades(Implosion):
         # Find stagnation time via minimum shell radius:
         min_R = self.r_raw[0, self.iFuel]
         stag_it = 0
-        for it in range(len(self.t_raw)):
+        for it in range(self.it_max()):
             R = self.r_raw[it, self.iFuel]
             if R < min_R:
                 min_R = R
@@ -602,29 +726,3 @@ class Hyades(Implosion):
         self.tstag = self.t_raw[stag_it]
         self.itstag = stag_it
 
-    def __precompute_ions__(self):
-        """Create arrays for ion composition in a more convenient structure."""
-        # Need to know the max number of ions per zone:
-        maxIons = 0
-        for i in range(len(self.AtmWgt)):
-            maxIons = max(len(self.AtmWgt[i]), maxIons)
-
-        # Size of created 3-D arrays for IonA, IonZ, IonF:
-        shape = (self.it_max()-self.it_min(), self.ir_max()-self.ir_min(), maxIons)
-        self.IonARaw = np.zeros(shape, dtype=np.float)
-        self.IonZRaw = np.zeros(shape, dtype=np.float)
-        self.IonFRaw = np.zeros(shape, dtype=np.float)
-        # Create 2-D arrays for averages (Abar and Zbar):
-        shape = (self.it_max()-self.it_min(), self.ir_max()-self.ir_min())
-        self.IonAbarRaw = np.zeros(shape, dtype=np.float)
-        self.IonZbarRaw = np.zeros(shape, dtype=np.float)
-
-        # Now we unfortunately have to loop to populate these:
-        for ir in np.arange(self.ir_min(), self.ir_max(), 1):
-            for k in range(len(self.AtmWgt[max(self.RegNums[ir]-1, 0)])):
-                self.IonARaw[self.it_min():self.it_max(),ir,k] = self.AtmWgt[max(self.RegNums[ir]-1, 0)][k]
-                self.IonZRaw[self.it_min():self.it_max(),ir,k] = self.AtmNum[max(self.RegNums[ir]-1, 0)][k]
-                self.IonFRaw[self.it_min():self.it_max(),ir,k] = self.AtmFrc[max(self.RegNums[ir]-1, 0)][k]
-
-        self.IonAbarRaw = np.sum(self.IonARaw*self.IonFRaw, axis=2)
-        self.IonZbarRaw = np.sum(self.IonZRaw*self.IonFRaw, axis=2)
