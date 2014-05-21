@@ -1,6 +1,7 @@
 
 import tkinter as tk
 import tkinter.ttk as ttk
+import platform
 
 class Option_Prompt(tk.Toplevel):
     """Implement a dialog window to prompt a user to select one of several options. The chosen result
@@ -20,7 +21,7 @@ class Option_Prompt(tk.Toplevel):
     """
     __author__ = 'Alex Zylstra'
     __date__ = '2014-01-25'
-    __version__ = '1.0.0'
+    __version__ = '0.1.0'
 
     def __init__(self, parent, title=None, text=None, options=[], width=10):
         """Initialize the dialog window"""
@@ -40,7 +41,11 @@ class Option_Prompt(tk.Toplevel):
         self.bind('<Return>', self.__ok__)
         self.bind('<Escape>', self.__cancel__)
 
-        self.configure(background='#eeeeee')
+        # Set window background
+        if platform.system() == 'Darwin':
+            self.configure(background='#E8E9E8')
+        else:
+            self.configure(background='#F1F1F1')
 
         self.wait_window(self)
 

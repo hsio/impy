@@ -1,6 +1,7 @@
 
 import tkinter as tk
 import tkinter.ttk as ttk
+import platform
 
 class Progress_Dialog(tk.Toplevel):
     """Implement a generic progress bar dialog. A cancel event can be retrieved by the
@@ -11,14 +12,19 @@ class Progress_Dialog(tk.Toplevel):
     """
     __author__ = 'Alex Zylstra'
     __date__ = '2014-01-23'
-    __version__ = '1.0.0'
+    __version__ = '0.1.0'
 
     def __init__(self, parent=None, maximum=100):
         """Initialize the progress dialog"""
         super(Progress_Dialog, self).__init__(parent)
         self.cancelled = False
         self.__createUI__(maximum)
-        self.configure(background='#eeeeee')
+
+        # Set window background
+        if platform.system() == 'Darwin':
+            self.configure(background='#E8E9E8')
+        else:
+            self.configure(background='#F1F1F1')
 
     def __createUI__(self, maximum):
         """Helper method to create the UI elements"""

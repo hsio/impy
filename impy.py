@@ -38,7 +38,11 @@ class impy(tk.Toplevel):
 
     def __init__(self):
         super(impy, self).__init__(None)
-        self.configure(background='#eeeeee')
+        # Set window background
+        if platform.system() == 'Darwin':
+            self.configure(background='#E8E9E8')
+        else:
+            self.configure(background='#F1F1F1')
         self.grid()
         self.modControlVars = dict()
         self.modControlChecks = dict()
@@ -49,9 +53,16 @@ class impy(tk.Toplevel):
         self.__createWidgets__()
         self.minsize(300,200)
         self.title('impy')
-        s = ttk.Style()
-        s.configure('.', background='#eeeeee')
-        s.configure('.', font=('Helvetica', 14))
+        self.style = ttk.Style()
+        # Set default font
+        if platform.system() == 'Darwin':
+            self.style.configure('.', font=('Helvetica', 14))
+        else:
+            self.style.configure('.', font=('Helvetica', 12))
+        # check theme for Windows
+        themes = self.style.theme_names()
+        if 'vista' in themes:
+            self.style.theme_use('vista')
 
         self.wm = WindowManager(self.winfo_screenwidth(), self.winfo_screenheight())
         self.wm.addWindow(self)
@@ -82,7 +93,12 @@ class impy(tk.Toplevel):
         menubar.add_cascade(label='Help', menu=helpMenu)
         self.config(menu=menubar)
 
-        fileMenu.add_command(label='Open File\t\t' + shortcutType + 'O', command=self.openFile)
+        # Tabs not supported by Windows
+        if platform.system() == 'Darwin':
+            tempText = 'Open File\t\t'
+        else:
+            tempText = 'Open File       '
+        fileMenu.add_command(label=tempText + shortcutType + 'O', command=self.openFile)
         self.bind('<' + shortcutModifier + 'o>', self.openFile)
 
         createMenu = tk.Menu(fileMenu, tearoff=0)
@@ -92,11 +108,21 @@ class impy(tk.Toplevel):
         for impType in allImplosions():
             createMenu.add_command(label='Create ' + impType.name(), command= lambda a=impType.name(): self.open(a))
 
-        fileMenu.add_command(label='Save\t\t\t' + shortcutType + 'S', command= lambda: self.save('CSV'))
+        # Tabs not supported on windows
+        if platform.system() == 'Darwin':
+            tempText = 'Save\t\t\t'
+        else:
+            tempText = 'Save                '
+        fileMenu.add_command(label=tempText + shortcutType + 'S', command= lambda: self.save('CSV'))
         self.bind('<' + shortcutModifier + 's>', lambda *args: self.save('CSV'))
         fileMenu.add_command(label='Save pickle', command= lambda: self.save('pickle'))
         fileMenu.add_command(label='Save plots', command= lambda: self.save('plots'))
-        fileMenu.add_command(label='Quit\t\t\t' + shortcutType + 'Q', command=self.close)
+        # Tabs not supported on Windows
+        if platform.system() == 'Darwin':
+            tempText = 'Quit\t\t\t'
+        else:
+            tempText = 'Quit                '
+        fileMenu.add_command(label=tempText + shortcutType + 'Q', command=self.close)
         self.bind('<' + shortcutModifier + 'q>', self.close)
 
         # Options in the help menu:
@@ -215,6 +241,9 @@ class impy(tk.Toplevel):
         # Now one is chosen:
         self.impType = correspondingImp[typeIndex].name()
         self.imp = correspondingImp[typeIndex](type='File', args=filename)
+
+        if not self.imp.ready():
+            return
 
         # Set info to display:
         self.typeLabelVar.set(self.impType)

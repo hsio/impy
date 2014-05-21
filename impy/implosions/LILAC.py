@@ -2,8 +2,7 @@
 from impy.implosions.Implosion import Implosion
 import os
 import csv
-import scipy
-import scipy.io
+import sys
 import numpy as np
 from impy.resources import fusion
 from impy.resources import constants
@@ -64,7 +63,8 @@ class LILAC(Implosion):
     :author: Alex Zylstra
     """
     __author__ = 'Alex Zylstra'
-    __version__ = '1.0.0'
+    __date__ = '2014-05-20'
+    __version__ = '0.2.0'
 
     # ----------------------------------------
     #           Generic methods
@@ -73,6 +73,7 @@ class LILAC(Implosion):
         """Construct a new implosion."""
         super(LILAC, self).__init__()
         self.__ready__ = False
+        self.__cancelled__ = False
 
         # Get file to open based on type:
         if type is 'GUI':
@@ -98,6 +99,12 @@ class LILAC(Implosion):
         # Set a few instance variables:
         self.filename = filename
         self.runProgress = 0.
+        self.__readMaterials__()
+        print(self.__cancelled__)
+        if self.__cancelled__:
+            print(self.ready())
+            return
+
         self.__ready__ = True
 
     @classmethod
@@ -474,8 +481,8 @@ class LILAC(Implosion):
     # ----------------------------------------
     #           Helper functions
     # ----------------------------------------
-    def __readLILAC__(self):
-        """Read hydro data from the file."""
+    def __readMaterials__(self):
+        """Read material info from the top of the file."""
         # initialize a few lists for figuring out the material regions:
         self.NumRegions = 0
         self.Regions = []
@@ -489,6 +496,24 @@ class LILAC(Implosion):
         self.region_Zavg = []
 
         with open(self.filename, 'r') as file:
+            # First line is the name
+            name = file.readline()
+
+            # Read in the fuel region info
+            dataReader = csv.reader(file , delimiter=' ')
+            line = self.cleanRead(dataReader)
+            while line[0].isdigit() and not self.__cancelled__:
+                #add to regions
+                self.Regions.append( [int(line[len(line)-2]), int(line[len(line)-1]) ] ) #region boundaries
+                # update materials
+                self.MatIdent(line[1], self.Regions[-1])
+                self.NumRegions += 1
+                line = self.cleanRead(dataReader)
+
+    def __readLILAC__(self):
+        """Read hydro data from the file."""
+
+        with open(self.filename, 'r') as file:
             #read in the name
             self.sim_name = file.readline()
             #convert from Dy/cm2 to GBar
@@ -496,16 +521,8 @@ class LILAC(Implosion):
             #convert from eV to keV
             TUnitConv = 1e-3
 
-            # Read in the fuel region info
-            dataReader = csv.reader(file , delimiter=' ')
+            dataReader = csv.reader(file, delimiter=',')
             line = self.cleanRead(dataReader)
-            while line[0].isdigit():
-                #add to regions
-                self.Regions.append( [int(line[len(line)-2]), int(line[len(line)-1]) ] ) #region boundaries
-                # update materials
-                self.MatIdent(line[1])
-                self.NumRegions += 1
-                line = self.cleanRead(dataReader)
 
             #Read in the header until we get to the start of the data
             #switch to comma delimited
@@ -529,6 +546,8 @@ class LILAC(Implosion):
                     uIndex = i
                 if "Pressure" in header[i]:
                     PIndex = i
+
+            self.runProgress += 0.1
 
             # 2-D arrays for the actual data
             self.r_raw = []
@@ -574,6 +593,8 @@ class LILAC(Implosion):
                     while len(line) > 0 and line[0][0].isdigit():
                         line = self.cleanRead(dataReader)
 
+            self.runProgress += 0.4
+
             # Convert data to ndarray
             self.r_raw = np.asarray(self.r_raw)
             self.t_raw = np.asarray(self.t_raw)
@@ -592,6 +613,8 @@ class LILAC(Implosion):
             self.VolRaw[:,0] = (4*np.pi/3) * np.power(self.r_raw[:,0], 3)
             # subsequent zones are a difference in spherical volume
             self.VolRaw[:,1:] = (4*np.pi/3) * np.diff(np.power(self.r_raw, 3))
+
+            self.runProgress += 0.25
 
             # Precompute time difference
             self.dtRaw = np.zeros_like(self.r_raw)
@@ -625,7 +648,9 @@ class LILAC(Implosion):
                 self.IonAbarRaw[:,ir0:ir1] = self.region_Aavg[i]
                 self.IonZbarRaw[:,ir0:ir1] = self.region_Zavg[i]
 
-        self.__find_scales__()
+            self.runProgress += 0.25
+
+            self.__find_scales__()
 
     def cleanRead(self, dataReader):
         """Helper function, reads a line and removes empty elements."""
@@ -638,23 +663,26 @@ class LILAC(Implosion):
             line.remove(' ')
         return line
 
-    def MatIdent(self, Num):
+    def MatIdent(self, Num, Zones):
         """Read in LILAC material definitions from CSV file, looking for ID # Num."""
-        from pkg_resources import resource_filename, resource_stream
-        MatFile = open(resource_filename('impy.implosions','LILAC_Materials.csv'), 'r')
-        #MatFile = resource_stream('impy.implosions', 'LILAC_Materials.csv')
+        try:
+            if getattr(sys, 'frozen', False):
+                # The application is frozen
+                datadir = os.path.dirname(sys.executable)
+            else:
+                # The application is not frozen
+                # Change this bit to match where you store your data files:
+                datadir = os.path.dirname(__file__)
+            #dir = os.path.split(__file__)
+            fname = os.path.join(datadir, 'LILAC_Materials.csv')
+            print(fname)
+            MatFile = open(fname, 'r')
+        except:
+            print('could not open materials file')
+            return
 
-        # import pkgutil
-        # MatFile = pkgutil.get_data('impy.implosions', 'LILAC_Materials.csv')
-        # import io
-        # MatFile = io.StringIO(MatFile)
         # TODO: data file input needs to be robust
-
-        #if not MatFile.readable(): #Sanity check
-        #    print("Error reading LILAC material file!")
-        #    return
         # TODO: better material error handling
-        data = MatFile.readline() #discard header
         dataReader = csv.reader(MatFile , delimiter=',')
 
         A = []
@@ -662,9 +690,13 @@ class LILAC(Implosion):
         F = []
         Abar = 0
         Zbar = 0
+        header = []
         for row in dataReader:
+            # first row of the file is the header:
+            if len(header) == 0:
+                header = row
             # found row corresponding to this material:
-            if int(row[0]) == int(Num):
+            elif int(row[0]) == int(Num):
                 Abar = float(row[1])
                 Zbar = float(row[2])
                 # number of ions:
@@ -684,6 +716,21 @@ class LILAC(Implosion):
         #sanity check
         if Abar == 0 or Zbar == 0:
             print("ERROR: material not found!")
+            # Prompt the user:
+            from impy.gui.LILAC_Material import LILAC_Material
+            dialog = LILAC_Material(None, Num, Zones)
+
+            # If the user cancelled, abort:
+            if dialog.cancelled:
+                self.__cancelled__ = True
+                return
+
+            # Get the results:
+            A = np.asarray(dialog.result[1])
+            Z = np.asarray(dialog.result[2])
+            F = np.asarray(dialog.result[3])
+            Abar = np.dot(A,F)
+            Zbar = np.dot(Z,F)
 
         self.region_A.append(A)
         self.region_Z.append(Z)

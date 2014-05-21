@@ -3,7 +3,7 @@ resources Package
 
 
 :mod:`ImplosionRunner` Module
---------------------------
+------------------------------
 
 .. automodule:: impy.util.ImplosionRunner
     :members:

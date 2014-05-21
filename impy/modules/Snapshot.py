@@ -7,6 +7,7 @@ import tkinter as tk
 import tkinter.ttk as ttk
 import matplotlib, matplotlib.pyplot
 import math
+import platform
 
 
 class Snapshot(Module, tk.Toplevel):
@@ -31,7 +32,7 @@ class Snapshot(Module, tk.Toplevel):
     """
     __author__ = 'Alex Zylstra'
     __date__ = '2014-02-12'
-    __version__ = '1.0.0'
+    __version__ = '0.1.0'
 
     # ----------------------------------------
     #           Generic methods
@@ -90,7 +91,13 @@ class Snapshot(Module, tk.Toplevel):
             # stretch the column to fill all space:
             tk.Grid.columnconfigure(self, 0, weight=1)
             tk.Grid.columnconfigure(self, 1, weight=1)
-            self.configure(background='#eeeeee')
+
+            # Set window background
+            if platform.system() == 'Darwin':
+                self.configure(background='#E8E9E8')
+            else:
+                self.configure(background='#F1F1F1')
+
             self.__createWidgets__()
             self.title('Snapshot')
             self.update_idletasks()

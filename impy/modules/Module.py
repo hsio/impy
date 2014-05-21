@@ -33,16 +33,16 @@ class Module(metaclass=ABCMeta):
     Notes for implementers of modules:
 
     * The constructor should not do any computationally intensive tasks. Those should be done in `run`, which
-    will be invoked in its own Thread.
-
+        will be invoked in its own Thread.
     * The `run` method should not interact with the user or display any results (for portability!)
+
 
     :author: Alex Zylstra
     :date: 2014-01-23
     """
     __author__ = 'Alex Zylstra'
     __date__ = '2014-01-23'
-    __version__ = '1.0.0'
+    __version__ = '0.1.0'
 
     # ----------------------------------------
     #           Generic methods

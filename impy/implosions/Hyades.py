@@ -65,7 +65,7 @@ class Hyades(Implosion):
     """
     __author__ = 'Alex Zylstra'
     __date__ = '2014-01-23'
-    __version__ = '1.0.0'
+    __version__ = '0.1.0'
 
     # ----------------------------------------
     #           Generic methods

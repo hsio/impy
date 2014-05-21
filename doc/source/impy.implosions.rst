@@ -17,3 +17,19 @@ implosions Package
     :members:
     :undoc-members:
     :show-inheritance:
+
+:mod:`LILAC` Module
+---------------------------
+
+.. automodule:: impy.implosions.LILAC
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+:mod:`Guderley` Module
+---------------------------
+
+.. automodule:: impy.implosions.Guderley
+    :members:
+    :undoc-members:
+    :show-inheritance:

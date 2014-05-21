@@ -1,6 +1,7 @@
 
 import tkinter as tk
 import tkinter.ttk as ttk
+import platform
 
 class Generate_Guderley(tk.Toplevel):
     """Implement a dialog window to prompt a user to configure a Guderley model
@@ -35,7 +36,11 @@ class Generate_Guderley(tk.Toplevel):
         self.bind('<Return>', self.__ok__)
         self.bind('<Escape>', self.__cancel__)
 
-        self.configure(background='#eeeeee')
+        # Set window background
+        if platform.system() == 'Darwin':
+            self.configure(background='#E8E9E8')
+        else:
+            self.configure(background='#F1F1F1')
 
         self.wait_window(self)
 

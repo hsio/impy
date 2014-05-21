@@ -6,7 +6,7 @@
 
 __author__ = 'Alex Zylstra'
 __date__ = '2014-01-03'
-__version__ = '1.0.0'
+__version__ = '0.1.0'
 
 
 #: fundamental charge [statC]

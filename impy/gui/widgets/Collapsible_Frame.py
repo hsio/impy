@@ -1,11 +1,12 @@
 __author__ = 'Alex Zylstra'
 __date__ = '2014-01-06'
-__version__ = '1.0.0'
+__version__ = '0.1.0'
 
 # adapted from: http://stackoverflow.com/questions/13141259/expandable-collapsible-frame-in-python-tkinter
 
 import tkinter as tk
 import tkinter.ttk as ttk
+import platform
 
 class Collapsible_Frame(tk.Frame):
     """Implement a Tkinter frame which can be hidden/shown by the user.
@@ -30,7 +31,11 @@ class Collapsible_Frame(tk.Frame):
     def __init__(self, parent, text='', **options):
         tk.Frame.__init__(self, parent, **options)
 
-        self.configure(background='#eeeeee')
+        # Set window background
+        if platform.system() == 'Darwin':
+            self.configure(background='#E8E9E8')
+        else:
+            self.configure(background='#F1F1F1')
 
         self.show=tk.IntVar()
         self.show.set(0)

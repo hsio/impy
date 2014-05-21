@@ -1,12 +1,14 @@
 
 from impy.modules.Module import Module
 from impy.implosions.Implosion import Implosion
+from impy.implosions.Guderley import Guderley
 from impy.resources.fusion import *
 
 import tkinter as tk
 import tkinter.ttk as ttk
 import matplotlib, matplotlib.pyplot
 import pickle
+import platform
 
 
 class Lagrange(Module, tk.Toplevel):
@@ -31,7 +33,7 @@ class Lagrange(Module, tk.Toplevel):
     """
     __author__ = 'Alex Zylstra'
     __date__ = '2014-02-10'
-    __version__ = '1.0.0'
+    __version__ = '0.2.0'
 
     # ----------------------------------------
     #           Generic methods
@@ -80,11 +82,33 @@ class Lagrange(Module, tk.Toplevel):
         # limits for calculations (all space/time):
         it = (imp.it_min(), imp.it_max())
         ir = (imp.ir_min(), imp.ir_max())
+
         # Get and save the info for plots:
         self.time = imp.t(it)
-        self.fuelShell = imp.r(it, (imp.ir_fuel()))
-        self.Lagrange = imp.r(it, ir)
 
+        # Most implosions are expected to be Lagrangian codes:
+        if not isinstance(imp, Guderley):
+            self.fuelShell = imp.r(it, (imp.ir_fuel()))
+            self.Lagrange = imp.r(it, ir)
+
+        # Guderley is a special case
+        else:
+            imp.rShellInit()
+            self.fuelShell = np.zeros_like(self.time)
+            for i in range(len(self.time)):
+                self.fuelShell[i] = imp.rShell(self.time[i])
+
+            # Lagrange
+            n = int(imp.r0 / imp.dr)  # radian "Lagrange masses" to track
+            # allocate array:
+            self.Lagrange = np.ndarray((len(self.time), n), dtype=np.float)
+            # loop over initial radius:
+            for i in range(n):
+                imp.rLagrangeInit(i*imp.dr)
+                # and then over time:
+                for j in range(len(self.time)):
+                    self.Lagrange[j,i] = imp.rLagrange(self.time[j])
+                self.runProgress += 1/n
         self.runProgress = 1.
 
     def display(self, type='GUI', refresh=False, wm=None):
@@ -102,7 +126,13 @@ class Lagrange(Module, tk.Toplevel):
             # stretch the column to fill all space:
             tk.Grid.columnconfigure(self, 0, weight=1)
             tk.Grid.columnconfigure(self, 1, weight=1)
-            self.configure(background='#eeeeee')
+
+            # Set window background
+            if platform.system() == 'Darwin':
+                self.configure(background='#E8E9E8')
+            else:
+                self.configure(background='#F1F1F1')
+
             self.__createWidgets__()
             self.title('Lagrange')
             self.update_idletasks()

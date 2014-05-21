@@ -1,6 +1,6 @@
 __author__ = 'Alex Zylstra'
 __date__ = '2014-03-26'
-__version__ = '1.0.0'
+__version__ = '0.1.0'
 
 import tkinter as tk
 import numpy as np

@@ -10,6 +10,22 @@ gui Package
     :undoc-members:
     :show-inheritance:
 
+:mod:`GenerateGuderley` Module
+-------------------------------
+
+.. automodule:: impy.gui.GenerateGuderley
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+:mod:`LILAC_Material` Module
+-----------------------------
+
+.. automodule:: impy.gui.LILAC_Material
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 :mod:`widgets.Collapsible_Frame` Module
 ----------------------------------------
 

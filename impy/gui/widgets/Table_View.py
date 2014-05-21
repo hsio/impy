@@ -3,6 +3,7 @@ __author__ = 'Alex Zylstra'
 import tkinter as tk
 import tkinter.font as tkFont
 import tkinter.ttk as ttk
+import platform
 
 def __sortby__(tree, col, descending):
     """Sort tree contents when a column is clicked on."""
@@ -33,7 +34,7 @@ class Table_Viewer_Frame(ttk.Frame):
     """
     __author__ = 'Alex Zylstra'
     __date__ = '2014-01-23'
-    __version__ = '1.0.0'
+    __version__ = '0.1.0'
 
     def __init__(self, columns=("Quantity", "Value"), data=[("","",)], parent=None, build=True):
         """Constructor"""
@@ -129,7 +130,11 @@ class Table_Viewer(tk.Toplevel):
 
         self.protocol("WM_DELETE_WINDOW", self.close)
 
-        self.configure(background='#eeeeee')
+        # Set window background
+        if platform.system() == 'Darwin':
+            self.configure(background='#E8E9E8')
+        else:
+            self.configure(background='#F1F1F1')
 
         # add header widgets to the GUI:
         for widget in widgets:

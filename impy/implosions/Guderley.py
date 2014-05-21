@@ -68,7 +68,7 @@ class Guderley(Implosion):
     """
     __author__ = 'Alex Zylstra'
     __date__ = '2014-05-15'
-    __version__ = '1.0.0'
+    __version__ = '0.2.0'
 
     # ----------------------------------------
     #           Generic methods
@@ -645,8 +645,6 @@ class Guderley(Implosion):
         # Finally, pre-compute relevant hydro variables:
         self.__precompute_hydro__()
 
-        #
-
     # ------------------------------------
     # Calculate various trajectories and velocities
     # ------------------------------------
@@ -1004,7 +1002,7 @@ class Guderley(Implosion):
         """Precompute the hydro variables for faster use later."""
         import math
         dim = ( math.ceil((self.t_max-self.t_min)/self.tstep) , int(self.r0/self.dr) )
-        print(dim)
+
         self.t_raw = np.arange(self.t_min, self.t_max, self.tstep)
         self.r_raw = np.ndarray(dim, dtype=np.float)
         self.u_raw = np.ndarray(dim, dtype=np.float)
