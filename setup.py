@@ -1,3 +1,7 @@
+# impy - a post-processor for HYADES implosion simulations
+# Copyright (c) Massachusetts Institute of Technology / Alex Zylstra
+# Distributed under the MIT License
+
 import sys
 from cx_Freeze import setup, Executable
 import scipy

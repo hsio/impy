@@ -1,3 +1,7 @@
+# impy - a post-processor for HYADES implosion simulations
+# Copyright (c) Massachusetts Institute of Technology / Alex Zylstra
+# Distributed under the MIT License
+
 __author__ = 'Alex Zylstra'
 __date__ = '2014-01-06'
 __version__ = '0.1.0'

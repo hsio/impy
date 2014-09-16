@@ -1,3 +1,7 @@
+# impy - a post-processor for HYADES implosion simulations
+# Copyright (c) Massachusetts Institute of Technology / Alex Zylstra
+# Distributed under the MIT License
+
 """ Plasma parameter calculators. Functions can take scalar quantities or numpy.ndarray
 :author: Alex Zylstra
 :date: 2014-01-03

@@ -1,3 +1,7 @@
+# impy - a post-processor for HYADES implosion simulations
+# Copyright (c) Massachusetts Institute of Technology / Alex Zylstra
+# Distributed under the MIT License
+
 """ Fusion reaction cross-sections and reactivities.
 
 :author: Alex Zylstra
@@ -250,6 +254,39 @@ class D3He(BoschHale):
     energyMax = 900
     TiMin = 0.5
     TiMax = 190
+
+
+class He3He3(Reaction):
+    """3He3He fusion, i.e. 3He(3He,pp)4He."""
+
+    #: Tuple containing reactant masses [AMU]
+    reactantA = (3,3)
+
+    #: Tuple containing reactant atomic numbers [e]
+    reactantZ = (2,2)
+
+    @classmethod
+    def name(cls):
+        return '3He3He'
+
+    @classmethod
+    def reactivity(cls, Ti):
+        """Calculate reactivity [cm^3/s].
+
+        :param Ti: Temperature [keV]
+        :raises: :py:exc:`ValueError`
+        """
+        T = T9(Ti)
+        return 5.59e10/Na * np.power(T,-2/3) * np.exp(-12.277*np.power(T,-1/3)) * (1. - 0.135*T + 2.54e-2*np.power(T,2) - 1.29e-3*np.power(T,3))
+
+    @classmethod
+    def crossSection(cls, En):
+        """Calculate cross section [cm^2].
+
+        :param En: CM energy [keV]
+        :raises: :py:exc:`ValueError`
+        """
+        pass
 
 #TODO: T3He
 #TODO: TT
