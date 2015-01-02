@@ -8,7 +8,7 @@ import pkgutil
 
 import tkinter as tk
 import tkinter.ttk as ttk
-from tkinter.filedialog import askdirectory
+# from tkinter.filedialog import askdirectory
 from impy.gui.WindowManager import WindowManager
 from impy.gui.widgets.Progress_Dialog import Progress_Dialog
 from impy.gui.widgets.Option_Prompt import Option_Prompt
@@ -36,8 +36,8 @@ for importer, modname, ispkg in pkgutil.iter_modules(impy.modules.__path__):
 class impy(tk.Toplevel):
     """Post-processor for hydrodynamic simulation results."""
     __author__ = 'Alex Zylstra'
-    __date__ = '2014-05-15'
-    __version__ = '0.2.0'
+    __date__ = '2015-01-02'
+    __version__ = '0.2.1'
 
     def __init__(self):
         super(impy, self).__init__(None)
@@ -210,6 +210,7 @@ class impy(tk.Toplevel):
         # Create the implosion:
         self.filename = filename
         ext = '*.' + filename.split('.')[-1]
+        #TODO: this will not open lilac dump because of its not-fixed extension
         # Find out which types this corresponds to:
         typeIndex = []
         for i in range(len(filetypes)):
